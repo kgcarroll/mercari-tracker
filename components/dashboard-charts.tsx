@@ -93,7 +93,7 @@ export function DashboardCharts({ summary }: { summary: Summary }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lots sold vs unsold</CardTitle>
+          <CardTitle>Items sold vs unsold</CardTitle>
           <CardDescription>
             {summary.soldCount} sold · {summary.unsoldCount} unsold inventory
           </CardDescription>

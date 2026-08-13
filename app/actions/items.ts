@@ -59,6 +59,7 @@ export async function createItem(raw: ItemInput) {
   await db.insert(lineItems).values(toRow(input));
   revalidatePath("/");
   revalidatePath("/insights");
+  revalidatePath("/buy");
 }
 
 export async function updateItem(id: string, raw: ItemInput) {
@@ -68,6 +69,7 @@ export async function updateItem(id: string, raw: ItemInput) {
   await db.update(lineItems).set(toRow(input)).where(eq(lineItems.id, id));
   revalidatePath("/");
   revalidatePath("/insights");
+  revalidatePath("/buy");
 }
 
 export async function deleteItem(id: string) {
@@ -76,4 +78,5 @@ export async function deleteItem(id: string) {
   await db.delete(lineItems).where(eq(lineItems.id, id));
   revalidatePath("/");
   revalidatePath("/insights");
+  revalidatePath("/buy");
 }
