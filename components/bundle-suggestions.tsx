@@ -28,7 +28,7 @@ export function BundleSuggestions({
     setError(null);
     setPending(true);
     try {
-      const next = await refineBundleSuggestions(
+      const result = await refineBundleSuggestions(
         ask,
         bundles.map((bundle) => ({
           title: bundle.title,
@@ -37,10 +37,14 @@ export function BundleSuggestions({
           products: bundle.products,
         })),
       );
-      setBundles(next);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setBundles(result.bundles);
       setPrompt("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update mixes.");
+    } catch {
+      setError("Could not update mixes. Try again.");
     } finally {
       setPending(false);
     }

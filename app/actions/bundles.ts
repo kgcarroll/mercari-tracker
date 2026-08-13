@@ -7,6 +7,10 @@ import { refineSmartBundles } from "@/lib/ai-bundles";
 import { getDashboard } from "@/lib/db/queries";
 import type { BundleSuggestion } from "@/lib/insights";
 
+export type RefineBundlesResult =
+  | { ok: true; bundles: BundleSuggestion[] }
+  | { ok: false; message: string };
+
 const refineSchema = z.object({
   prompt: z.string().trim().min(1, "Ask for a different mix.").max(240),
   current: z.array(
@@ -27,16 +31,26 @@ export async function refineBundleSuggestions(
     itemIds: string[];
     products: string[];
   }>,
-): Promise<BundleSuggestion[]> {
+): Promise<RefineBundlesResult> {
   await requireAppUser();
-  const input = refineSchema.parse({ prompt, current });
+  const parsed = refineSchema.safeParse({ prompt, current });
+  if (!parsed.success) {
+    return { ok: false, message: "Ask for a different mix." };
+  }
+
   const { items } = await getDashboard();
   try {
-    return await refineSmartBundles(items, input.prompt, input.current);
+    const bundles = await refineSmartBundles(
+      items,
+      parsed.data.prompt,
+      parsed.data.current,
+    );
+    return { ok: true, bundles };
   } catch (err) {
+    console.error("refineBundleSuggestions failed", err);
     if (err instanceof Error && err.message.startsWith("Could not build")) {
-      throw err;
+      return { ok: false, message: err.message };
     }
-    throw new Error("Could not update mixes. Try again.");
+    return { ok: false, message: "Could not update mixes. Try again." };
   }
 }

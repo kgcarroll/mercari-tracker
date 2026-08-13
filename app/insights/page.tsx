@@ -7,6 +7,8 @@ import { requireAppUser } from "@/lib/auth";
 import { getDashboard } from "@/lib/db/queries";
 import { buildInsights } from "@/lib/insights";
 
+export const maxDuration = 60;
+
 export default async function InsightsPage() {
   await requireAppUser();
   const { items } = await getDashboard();
