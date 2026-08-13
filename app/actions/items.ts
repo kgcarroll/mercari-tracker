@@ -33,8 +33,9 @@ function emptyToNull(value: string | undefined): string | null {
 
 function toRow(input: ItemInput) {
   const soldAt =
-    emptyToNull(input.soldAt) ??
-    (input.salePrice > 0 ? new Date().toISOString().slice(0, 10) : null);
+    input.salePrice > 0
+      ? emptyToNull(input.soldAt) ?? new Date().toISOString().slice(0, 10)
+      : null;
 
   return {
     product: input.product,

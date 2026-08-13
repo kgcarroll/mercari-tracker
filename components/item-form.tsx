@@ -32,6 +32,8 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
   const [salePrice, setSalePrice] = useState(String(initial?.salePrice ?? "0"));
   const [shippingCost, setShippingCost] = useState(String(initial?.shippingCost ?? ""));
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [listedAt, setListedAt] = useState(initial?.listedAt ?? "");
+  const [soldAt, setSoldAt] = useState(initial?.soldAt ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -55,6 +57,8 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
         salePrice: Number(salePrice),
         shippingCost: Number(shippingCost),
         notes,
+        listedAt,
+        soldAt,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save item");
@@ -134,6 +138,28 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
         Leave sale price at 0 for unsold inventory. Fee is 10% of (sale + shipping)
         and only applies once it sells. Profit is sale − fee − cost.
       </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-2">
+          <Label htmlFor="listedAt">Date posted</Label>
+          <Input
+            id="listedAt"
+            type="date"
+            value={listedAt}
+            onChange={(event) => setListedAt(event.target.value)}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="soldAt">Date sold</Label>
+          <Input
+            id="soldAt"
+            type="date"
+            value={soldAt}
+            onChange={(event) => setSoldAt(event.target.value)}
+            disabled={!(Number(salePrice) > 0)}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3 text-sm sm:grid-cols-4">
         <PreviewStat label="Fee" value={formatMoney(preview.mercariFee)} />

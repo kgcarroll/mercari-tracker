@@ -69,6 +69,8 @@ export function ItemDialogs({
                     salePrice: item.salePrice,
                     shippingCost: item.shippingCost,
                     notes: item.notes ?? "",
+                    listedAt: item.listedAt ?? "",
+                    soldAt: item.soldAt ?? "",
                   }
                 : { salePrice: 0 }
             }

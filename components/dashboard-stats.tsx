@@ -1,5 +1,6 @@
 import type { Summary } from "@/lib/calculations";
 import { formatMoney, formatPercent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function StatCard({
@@ -7,11 +8,13 @@ function StatCard({
   value,
   hint,
   large = false,
+  valueClassName,
 }: {
   label: string;
   value: string;
   hint?: string;
   large?: boolean;
+  valueClassName?: string;
 }) {
   return (
     <Card size={large ? "default" : "sm"}>
@@ -19,7 +22,13 @@ function StatCard({
         <CardTitle className="text-muted-foreground text-xs font-medium">{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className={large ? "text-3xl font-semibold tracking-tight" : "text-2xl font-semibold tracking-tight"}>
+        <p
+          className={cn(
+            "font-semibold tracking-tight",
+            large ? "text-3xl" : "text-2xl",
+            valueClassName,
+          )}
+        >
           {value}
         </p>
         {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
@@ -44,6 +53,7 @@ export function DashboardStats({ summary }: { summary: Summary }) {
             large
             label="Net profit"
             value={formatMoney(summary.netProfit)}
+            valueClassName="text-green-700 dark:text-green-400"
             hint={`${formatMoney(summary.totalProfit)} realized − ${formatMoney(summary.unsoldCost)} still in stock`}
           />
           <StatCard
@@ -56,6 +66,7 @@ export function DashboardStats({ summary }: { summary: Summary }) {
             large
             label="Unsold inventory cost"
             value={formatMoney(summary.unsoldCost)}
+            valueClassName="text-red-700 dark:text-red-400"
             hint={`${summary.unsoldCount} lots still on the shelf`}
           />
         </div>

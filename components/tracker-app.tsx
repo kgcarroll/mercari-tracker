@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
 
 import type { ComputedItem } from "@/lib/db/queries";
-import { formatMoney, formatPercent } from "@/lib/format";
+import { formatDate, formatMoney, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,23 @@ type SortKey =
   | "shippingCost"
   | "mercariFee"
   | "profit"
-  | "profitPct";
+  | "profitPct"
+  | "listedAt"
+  | "soldAt";
 
 type SortDir = "asc" | "desc";
+
+function compareNullableString(
+  a: string | null,
+  b: string | null,
+  dir: SortDir,
+): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  const diff = a.localeCompare(b);
+  return dir === "asc" ? diff : -diff;
+}
 
 function compareNullableNumber(
   a: number | null,
@@ -112,6 +126,9 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
           sensitivity: "base",
         });
         return sortDir === "asc" ? diff : -diff;
+      }
+      if (sortKey === "listedAt" || sortKey === "soldAt") {
+        return compareNullableString(a[sortKey], b[sortKey], sortDir);
       }
       return compareNullableNumber(a[sortKey], b[sortKey], sortDir);
     });
@@ -234,6 +251,22 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
                 align="right"
                 onSort={toggleSort}
               />
+              <SortHeader
+                label="Posted"
+                column="listedAt"
+                className="w-[4.75rem]"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortHeader
+                label="Sold"
+                column="soldAt"
+                className="w-[4.75rem]"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
               <TableHead className="w-14" />
             </TableRow>
           </TableHeader>
@@ -259,6 +292,8 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
                 <TableCell className="text-right">{formatMoney(item.mercariFee)}</TableCell>
                 <TableCell className="text-right">{formatMoney(item.profit)}</TableCell>
                 <TableCell className="text-right">{formatPercent(item.profitPct)}</TableCell>
+                <TableCell>{formatDate(item.listedAt)}</TableCell>
+                <TableCell>{formatDate(item.soldAt)}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                     Edit
@@ -268,7 +303,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
             ))}
             {visible.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                   No lots match this filter.
                 </TableCell>
               </TableRow>
