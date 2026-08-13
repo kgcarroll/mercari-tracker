@@ -1,9 +1,16 @@
+import { daysBetween, nowAppDate, parseISODate } from "@/lib/dates";
+
 export const MERCARI_FEE_RATE = 0.1;
 
 export type MoneyInputs = {
   cost: number;
   salePrice: number;
   shippingCost: number;
+};
+
+export type SummaryItem = MoneyInputs & {
+  listedAt?: string | null;
+  soldAt?: string | null;
 };
 
 export type LineItemTotals = {
@@ -67,12 +74,32 @@ export type Summary = {
   totalProfit: number;
   netProfit: number;
   avgProfitPerSold: number | null;
+  avgSalesPerDay: number | null;
+  avgLotsPerDay: number | null;
+  salesDayCount: number | null;
   roiOnCapital: number | null;
   roiOnSoldCost: number | null;
 };
 
+function saleDate(item: SummaryItem): Date | null {
+  return parseISODate(item.soldAt ?? "") ?? parseISODate(item.listedAt ?? "");
+}
+
+function salesWindowDays(items: SummaryItem[], today: Date): number | null {
+  let first: Date | null = null;
+  for (const item of items) {
+    if (!isSold(item.salePrice)) continue;
+    const date = saleDate(item);
+    if (!date) continue;
+    if (!first || date < first) first = date;
+  }
+  if (!first) return null;
+  return Math.max(1, daysBetween(first, today) + 1);
+}
+
 export function summarize(
-  items: Array<MoneyInputs & { profit?: number | null }>,
+  items: Array<SummaryItem & { profit?: number | null }>,
+  today = nowAppDate(),
 ): Summary {
   const lotCount = items.length;
   let soldCount = 0;
@@ -102,6 +129,7 @@ export function summarize(
 
   const unsoldCount = lotCount - soldCount;
   const netProfit = roundMoney(totalProfit - unsoldCost);
+  const salesDayCount = soldCount === 0 ? null : salesWindowDays(items, today);
 
   return {
     lotCount,
@@ -117,6 +145,11 @@ export function summarize(
     totalProfit,
     netProfit,
     avgProfitPerSold: soldCount === 0 ? null : roundMoney(totalProfit / soldCount),
+    avgSalesPerDay:
+      salesDayCount == null ? null : roundMoney(totalSales / salesDayCount),
+    avgLotsPerDay:
+      salesDayCount == null ? null : roundMoney(soldCount / salesDayCount),
+    salesDayCount,
     roiOnCapital: totalSpent === 0 ? null : netProfit / totalSpent,
     roiOnSoldCost: soldCost === 0 ? null : totalProfit / soldCost,
   };

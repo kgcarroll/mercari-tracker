@@ -1,5 +1,5 @@
 import type { Summary } from "@/lib/calculations";
-import { formatMoney, formatPercent } from "@/lib/format";
+import { formatMoney, formatPercent, formatRate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -70,8 +70,19 @@ export function DashboardStats({ summary }: { summary: Summary }) {
             hint={`${summary.unsoldCount} lots still on the shelf`}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard label="Gross sales" value={formatMoney(summary.totalSales)} />
+          <StatCard
+            label="Average sales per day"
+            value={formatMoney(summary.avgSalesPerDay)}
+            hint={
+              summary.soldCount === 0
+                ? "Sold lots only"
+                : summary.salesDayCount == null
+                  ? "Needs a sold or posted date"
+                  : `${formatMoney(summary.totalSales)} over ${summary.salesDayCount} ${summary.salesDayCount === 1 ? "day" : "days"}`
+            }
+          />
           <StatCard label="Total Mercari fees" value={formatMoney(summary.totalFees)} />
           <StatCard label="Total cost of all lots" value={formatMoney(summary.totalSpent)} />
           <StatCard
@@ -86,8 +97,19 @@ export function DashboardStats({ summary }: { summary: Summary }) {
         <div>
           <h2 className="text-sm font-medium">Sold lots</h2>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Total amount of sales" value={String(summary.soldCount)} />
+          <StatCard
+            label="Lots per day"
+            value={formatRate(summary.avgLotsPerDay)}
+            hint={
+              summary.soldCount === 0
+                ? "Sold lots only"
+                : summary.salesDayCount == null
+                  ? "Needs a sold or posted date"
+                  : `${summary.soldCount} lots over ${summary.salesDayCount} ${summary.salesDayCount === 1 ? "day" : "days"}`
+            }
+          />
           <StatCard
             label="Average profit from items sold"
             value={formatMoney(summary.avgProfitPerSold)}

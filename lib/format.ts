@@ -18,6 +18,15 @@ export function formatPercent(value: number | null | undefined): string {
   return percent.format(value);
 }
 
+const rate = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+
+export function formatRate(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  return rate.format(value);
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const [year, month, day] = value.split("-").map(Number);
