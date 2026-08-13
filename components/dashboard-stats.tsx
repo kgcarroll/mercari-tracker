@@ -70,7 +70,7 @@ export function DashboardStats({ summary }: { summary: Summary }) {
             hint={`${summary.unsoldCount} lots still on the shelf`}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard label="Gross sales" value={formatMoney(summary.totalSales)} />
           <StatCard
             label="Average sales per day"
@@ -89,6 +89,11 @@ export function DashboardStats({ summary }: { summary: Summary }) {
             label="Overall ROI"
             value={formatPercent(summary.roiOnCapital)}
             hint="Net profit ÷ all money spent"
+          />
+          <StatCard
+            label="Unsold lots"
+            value={String(summary.unsoldCount)}
+            valueClassName="text-red-700 dark:text-red-400"
           />
         </div>
       </section>
