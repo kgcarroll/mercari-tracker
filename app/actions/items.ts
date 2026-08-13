@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireAppUser } from "@/lib/auth";
+import { todayISODate } from "@/lib/dates";
 import { getDb } from "@/lib/db";
 import { lineItems } from "@/lib/db/schema";
 
@@ -34,7 +35,7 @@ function emptyToNull(value: string | undefined): string | null {
 function toRow(input: ItemInput) {
   const soldAt =
     input.salePrice > 0
-      ? emptyToNull(input.soldAt) ?? new Date().toISOString().slice(0, 10)
+      ? emptyToNull(input.soldAt) ?? todayISODate()
       : null;
 
   return {
@@ -57,6 +58,7 @@ export async function createItem(raw: ItemInput) {
   const db = getDb();
   await db.insert(lineItems).values(toRow(input));
   revalidatePath("/");
+  revalidatePath("/insights");
 }
 
 export async function updateItem(id: string, raw: ItemInput) {
@@ -65,6 +67,7 @@ export async function updateItem(id: string, raw: ItemInput) {
   const db = getDb();
   await db.update(lineItems).set(toRow(input)).where(eq(lineItems.id, id));
   revalidatePath("/");
+  revalidatePath("/insights");
 }
 
 export async function deleteItem(id: string) {
@@ -72,4 +75,5 @@ export async function deleteItem(id: string) {
   const db = getDb();
   await db.delete(lineItems).where(eq(lineItems.id, id));
   revalidatePath("/");
+  revalidatePath("/insights");
 }

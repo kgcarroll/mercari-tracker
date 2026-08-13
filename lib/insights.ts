@@ -1,5 +1,5 @@
 import { calculateLineItem, roundMoney } from "@/lib/calculations";
-import { daysBetween, median, parseISODate } from "@/lib/dates";
+import { daysBetween, median, nowAppDate, parseISODate, todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 
 export type InventoryAction = "relist" | "bundle" | "hold";
@@ -54,13 +54,6 @@ export function productFamily(product: string): string {
     .replace(/\s*\([^)]*\)/g, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function isoDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 export function daysSitting(item: ComputedItem, today: Date): number | null {
@@ -318,7 +311,7 @@ export function ruleBasedBundles(
 
 export function buildInsights(
   items: ComputedItem[],
-  today = new Date(),
+  today = nowAppDate(),
 ): InventoryInsights {
   const sellTimes = items
     .map(daysToSell)
@@ -366,7 +359,7 @@ export function buildInsights(
   }
 
   return {
-    today: isoDate(today),
+    today: todayISODate(),
     medianDaysToSell,
     staleAfterDays,
     stale,

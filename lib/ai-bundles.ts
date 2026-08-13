@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
-import { median } from "@/lib/dates";
+import { median, nowAppDate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 import {
   bundlesFromIds,
@@ -45,7 +45,7 @@ function mapAction(action: "solo" | "bundle" | "hold"): InventoryAction {
 export async function suggestSmartInsights(
   items: ComputedItem[],
   stale: StaleSuggestion[],
-  today = new Date(),
+  today = nowAppDate(),
 ): Promise<{
   stale: StaleSuggestion[];
   bundles: BundleSuggestion[];
