@@ -17,6 +17,17 @@ import {
 
 const FREE_MODEL = "inclusionai/ling-3.0-tiny-free";
 
+const bundleMixSchema = z
+  .array(
+    z.object({
+      title: z.string(),
+      why: z.string(),
+      itemIds: z.array(z.string()).min(2).max(4),
+    }),
+  )
+  .min(3)
+  .max(3);
+
 const insightOutput = z.object({
   actions: z.array(
     z.object({
@@ -25,16 +36,11 @@ const insightOutput = z.object({
       reason: z.string(),
     }),
   ),
-  bundles: z
-    .array(
-      z.object({
-        title: z.string(),
-        why: z.string(),
-        itemIds: z.array(z.string()).min(2).max(4),
-      }),
-    )
-    .min(3)
-    .max(3),
+  bundles: bundleMixSchema,
+});
+
+const refineOutput = z.object({
+  bundles: bundleMixSchema,
 });
 
 function mapAction(action: "solo" | "bundle" | "hold"): InventoryAction {
@@ -42,20 +48,14 @@ function mapAction(action: "solo" | "bundle" | "hold"): InventoryAction {
   return action;
 }
 
-export async function suggestSmartInsights(
+function unsoldCatalog(
   items: ComputedItem[],
-  stale: StaleSuggestion[],
   today = nowAppDate(),
-): Promise<{
-  stale: StaleSuggestion[];
-  bundles: BundleSuggestion[];
-  source: "ai" | "rules";
-}> {
+  staleIds?: Set<string>,
+) {
   const unsold = items.filter((item) => item.status === "unsold");
   const sold = items.filter((item) => item.status === "sold");
-  const fallbackBundles = ruleBasedBundles(unsold, sold);
-
-  const catalog = unsold.map((item) => {
+  return unsold.map((item) => {
     const family = productFamily(item.product);
     const exact = exactFamilyCompsFor(family, sold);
     const related = familyCompsFor(family, sold);
@@ -72,9 +72,47 @@ export async function suggestSmartInsights(
       exactMedianProfit: median(exact.profits),
       relatedMedianSale: median(related.sales),
       relatedMedianProfit: median(related.profits),
-      stale: stale.some((row) => row.id === item.id),
+      stale: staleIds?.has(item.id) ?? false,
     };
   });
+}
+
+function pricedBundles(
+  items: ComputedItem[],
+  mixes: Array<{ title: string; why: string; itemIds: string[] }>,
+  prefix: string,
+): BundleSuggestion[] {
+  const unsold = items.filter((item) => item.status === "unsold");
+  const sold = items.filter((item) => item.status === "sold");
+  return bundlesFromIds(
+    unsold,
+    sold,
+    mixes.map((bundle, index) => ({
+      id: `${prefix}-${index}`,
+      title: bundle.title,
+      why: bundle.why,
+      itemIds: bundle.itemIds,
+    })),
+  );
+}
+
+export async function suggestSmartInsights(
+  items: ComputedItem[],
+  stale: StaleSuggestion[],
+  today = nowAppDate(),
+): Promise<{
+  stale: StaleSuggestion[];
+  bundles: BundleSuggestion[];
+  source: "ai" | "rules";
+}> {
+  const unsold = items.filter((item) => item.status === "unsold");
+  const sold = items.filter((item) => item.status === "sold");
+  const fallbackBundles = ruleBasedBundles(unsold, sold);
+  const catalog = unsoldCatalog(
+    items,
+    today,
+    new Set(stale.map((row) => row.id)),
+  );
 
   try {
     const { output } = await generateText({
@@ -113,15 +151,7 @@ ${JSON.stringify(catalog)}`,
       };
     });
 
-    const bundles = bundlesFromIds(
-      unsold,
-      (output?.bundles ?? []).map((bundle, index) => ({
-        id: `ai-${index}`,
-        title: bundle.title,
-        why: bundle.why,
-        itemIds: bundle.itemIds,
-      })),
-    );
+    const bundles = pricedBundles(items, output?.bundles ?? [], "ai");
 
     return {
       stale: nextStale,
@@ -135,4 +165,39 @@ ${JSON.stringify(catalog)}`,
       source: "rules",
     };
   }
+}
+
+export async function refineSmartBundles(
+  items: ComputedItem[],
+  prompt: string,
+  current: Array<{ title: string; why: string; itemIds: string[]; products: string[] }>,
+): Promise<BundleSuggestion[]> {
+  const catalog = unsoldCatalog(items);
+
+  const { output } = await generateText({
+    model: FREE_MODEL,
+    output: Output.object({ schema: refineOutput }),
+    prompt: `Update these Mercari Needoh bundle suggestions.
+
+The seller asked: ${JSON.stringify(prompt)}
+
+Keep EXACTLY 3 optional bundle alternatives.
+- Each bundle 2-4 items, different families inside a bundle (never three of the same family).
+- Follow the ask. If they exclude a product or family, do not include it.
+- Bundles may reuse items across the 3 alternatives.
+- Use only catalog item ids.
+- Titles and why should reflect the new mix.
+
+Current mixes:
+${JSON.stringify(current)}
+
+Catalog JSON:
+${JSON.stringify(catalog)}`,
+  });
+
+  const bundles = pricedBundles(items, output?.bundles ?? [], "ask");
+  if (bundles.length < 3) {
+    throw new Error("Could not build three mixes from that. Try a looser ask.");
+  }
+  return bundles.slice(0, 3);
 }

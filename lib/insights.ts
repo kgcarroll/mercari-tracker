@@ -168,7 +168,21 @@ function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 }
 
-export function priceBundle(items: ComputedItem[]): {
+export const BUNDLE_DISCOUNT = 0.05;
+
+function soloCompSale(item: ComputedItem, sold: ComputedItem[]): number {
+  const family = productFamily(item.product);
+  const exact = median(exactFamilyCompsFor(family, sold).sales);
+  if (exact != null) return exact;
+  const related = median(familyCompsFor(family, sold).sales);
+  if (related != null) return related;
+  return Math.max(18, item.cost * 2.5);
+}
+
+export function priceBundle(
+  items: ComputedItem[],
+  sold: ComputedItem[],
+): {
   cost: number;
   shippingCost: number;
   suggestedSale: number;
@@ -179,7 +193,8 @@ export function priceBundle(items: ComputedItem[]): {
   const shippingCost = roundMoney(
     Math.max(...items.map((item) => item.shippingCost), 4.91),
   );
-  const suggestedSale = roundMoney(Math.max(items.length * 18, cost * 2.5));
+  const listAsSolos = items.reduce((sum, item) => sum + soloCompSale(item, sold), 0);
+  const suggestedSale = roundMoney(listAsSolos * (1 - BUNDLE_DISCOUNT));
   const calc = calculateLineItem({
     cost,
     salePrice: suggestedSale,
@@ -195,10 +210,11 @@ export function priceBundle(items: ComputedItem[]): {
 }
 
 export function bundlesFromIds(
-  items: ComputedItem[],
+  unsold: ComputedItem[],
+  sold: ComputedItem[],
   groups: Array<{ id: string; title: string; why: string; itemIds: string[] }>,
 ): BundleSuggestion[] {
-  const byId = new Map(items.map((item) => [item.id, item]));
+  const byId = new Map(unsold.map((item) => [item.id, item]));
   const bundles: BundleSuggestion[] = [];
 
   for (const group of groups) {
@@ -219,7 +235,7 @@ export function bundlesFromIds(
       why: group.why,
       itemIds: members.map((item) => item.id),
       products: members.map((item) => item.product),
-      ...priceBundle(members),
+      ...priceBundle(members, sold),
     });
   }
 
@@ -253,7 +269,7 @@ export function ruleBasedBundles(
   const gummy = firstOfFamily(pool, (family) => /gummy/.test(family));
   const glitter = firstOfFamily(pool, (family) => /glitter/.test(family));
 
-  let bundles = bundlesFromIds(unsold, [
+  let bundles = bundlesFromIds(unsold, sold, [
     {
       id: "glow-mix",
       title: "Glow mix",
@@ -290,7 +306,7 @@ export function ruleBasedBundles(
       itemIds: group.map((item) => item.id),
     }));
 
-  return bundlesFromIds(unsold, [
+  return bundlesFromIds(unsold, sold, [
     ...bundles.map((bundle) => ({
       id: bundle.id,
       title: bundle.title,

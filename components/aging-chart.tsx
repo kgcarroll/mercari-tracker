@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 
 import { formatMoney } from "@/lib/format";
 import {
@@ -9,6 +9,7 @@ import {
   FRESH_MAX_DAYS,
   STALE_MIN_DAYS,
   type AgingBucket,
+  type AgingBucketKey,
 } from "@/lib/insights";
 import {
   Card,
@@ -25,14 +26,23 @@ import {
 } from "@/components/ui/chart";
 
 const agingConfig = {
-  cost: { label: "Cash sitting", color: "var(--chart-2)" },
+  cost: { label: "Cash sitting" },
 } satisfies ChartConfig;
+
+const BAR_FILL: Record<AgingBucketKey, string> = {
+  fresh: "#86efac",
+  aging: "#fb923c",
+  stale: "#f87171",
+  undated: "#737373",
+};
 
 export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
   const data = buckets.map((bucket) => ({
     bucket: bucket.label,
+    key: bucket.key,
     cost: bucket.cost,
     count: bucket.count,
+    fill: BAR_FILL[bucket.key],
   }));
   const total = buckets.reduce((sum, bucket) => sum + bucket.cost, 0);
 
@@ -64,7 +74,11 @@ export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
                 />
               }
             />
-            <Bar dataKey="cost" fill="var(--color-cost)" radius={6} />
+            <Bar dataKey="cost" radius={6}>
+              {data.map((entry) => (
+                <Cell key={entry.key} fill={entry.fill} />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>
