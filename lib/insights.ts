@@ -44,7 +44,13 @@ export type InventoryInsights = {
   bundles: BundleSuggestion[];
 };
 
-const ADVENT = /advent|calendar/i;
+/** Posted 0–6 days. */
+export const FRESH_MAX_DAYS = 6;
+/** Posted 7–13 days. */
+export const AGING_MIN_DAYS = 7;
+export const AGING_MAX_DAYS = 13;
+/** Posted 14+ days. */
+export const STALE_MIN_DAYS = 14;
 
 export function productFamily(product: string): string {
   return product
@@ -71,15 +77,10 @@ function daysToSell(item: ComputedItem): number | null {
   return Math.max(0, daysBetween(posted, sold));
 }
 
-function staleThreshold(medianSell: number | null): number {
-  const typical = medianSell == null ? 21 : Math.round(medianSell);
-  return Math.min(45, Math.max(14, typical));
-}
-
 function agingKey(days: number | null): AgingBucketKey {
   if (days == null) return "undated";
-  if (days >= 31) return "stale";
-  if (days >= 15) return "aging";
+  if (days >= STALE_MIN_DAYS) return "stale";
+  if (days >= AGING_MIN_DAYS) return "aging";
   return "fresh";
 }
 
@@ -115,17 +116,9 @@ export function exactFamilyCompsFor(
 
 export function decideAction(
   item: ComputedItem,
-  month: number,
   sold: ComputedItem[],
   unsold: ComputedItem[],
 ): { action: InventoryAction; reason: string } {
-  if (ADVENT.test(item.product) && month >= 2 && month <= 9) {
-    return {
-      action: "hold",
-      reason: "Holiday calendar — list closer to Q4. Do not dump it into a mixed bundle.",
-    };
-  }
-
   const family = productFamily(item.product);
   const exact = exactFamilyCompsFor(family, sold);
   const related = familyCompsFor(family, sold);
@@ -235,7 +228,6 @@ export function bundlesFromIds(
 
 function leftoverPool(unsold: ComputedItem[], sold: ComputedItem[]): ComputedItem[] {
   return unsold.filter((item) => {
-    if (ADVENT.test(item.product)) return false;
     const family = productFamily(item.product);
     const exact = sold.filter((row) => productFamily(row.product) === family);
     const exactProfit = median(
@@ -317,17 +309,15 @@ export function buildInsights(
     .map(daysToSell)
     .filter((value): value is number => value != null);
   const medianDaysToSell = median(sellTimes);
-  const staleAfterDays = staleThreshold(medianDaysToSell);
-  const month = today.getMonth() + 1;
   const sold = items.filter((item) => item.status === "sold");
   const unsold = items.filter((item) => item.status === "unsold");
 
   const stale: StaleSuggestion[] = unsold
     .map((item) => {
       const sitting = daysSitting(item, today);
-      const isStale = sitting == null || sitting >= staleAfterDays;
-      if (!isStale) return null;
-      const { action, reason } = decideAction(item, month, sold, unsold);
+      const { action, reason } = decideAction(item, sold, unsold);
+      const needsAction = sitting == null || sitting >= AGING_MIN_DAYS;
+      if (!needsAction) return null;
       return {
         id: item.id,
         product: item.product,
@@ -361,7 +351,7 @@ export function buildInsights(
   return {
     today: todayISODate(),
     medianDaysToSell,
-    staleAfterDays,
+    staleAfterDays: AGING_MIN_DAYS,
     stale,
     aging: [agingMap.fresh, agingMap.aging, agingMap.stale, agingMap.undated],
     bundles: ruleBasedBundles(unsold, sold),

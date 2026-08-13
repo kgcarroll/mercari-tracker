@@ -1,7 +1,22 @@
 export const APP_TIME_ZONE = "America/New_York";
 
-export function parseISODate(value: string): Date | null {
-  const [year, month, day] = value.split("-").map(Number);
+export function toISODateString(value: string | Date | null | undefined): string | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(value.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
+
+export function parseISODate(value: string | Date): Date | null {
+  const iso = toISODateString(value);
+  if (!iso) return null;
+  const [year, month, day] = iso.split("-").map(Number);
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
 }

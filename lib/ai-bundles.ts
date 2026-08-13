@@ -87,12 +87,12 @@ For every catalog item where stale=true, set action to solo, bundle, or hold, wi
 Guidance:
 - solo: this exact SKU or close comps sold at a healthy profit (Knittens $68, Sugar Skulls ~$26, Teenie Jacks ~$24–$28). Also use solo for a first copy of a lantern if related Teenie Jacks sold well.
 - bundle: no exact comps, shipping is large vs a cheap single, OR extras when 3+ of the same family are sitting. Do not mark every lot bundle.
-- hold: Advent Calendar before Q4.
+- hold: rarely. Do not special-case any SKU by name.
 - Do not mark everything solo. Do not mark everything bundle.
 
 Also return EXACTLY 3 optional bundle alternatives.
 - Each bundle 2-4 items, different families inside a bundle (never three Jack-Glow-Lanterns).
-- Prefer items you marked bundle. Skip Advent Calendar.
+- Prefer items you marked bundle.
 - Bundles may reuse items across the 3 alternatives.
 - Use only these item ids.
 

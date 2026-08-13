@@ -3,7 +3,13 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { formatMoney } from "@/lib/format";
-import type { AgingBucket } from "@/lib/insights";
+import {
+  AGING_MAX_DAYS,
+  AGING_MIN_DAYS,
+  FRESH_MAX_DAYS,
+  STALE_MIN_DAYS,
+  type AgingBucket,
+} from "@/lib/insights";
 import {
   Card,
   CardContent,
@@ -35,8 +41,9 @@ export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
       <CardHeader>
         <CardTitle>Aging inventory</CardTitle>
         <CardDescription>
-          {formatMoney(total)} still on the shelf. Fresh is 0–14 days posted, aging
-          15–30, stale 31+.
+          {formatMoney(total)} still on the shelf. Fresh is 0–{FRESH_MAX_DAYS}{" "}
+          days posted, aging {AGING_MIN_DAYS}–{AGING_MAX_DAYS}, stale{" "}
+          {STALE_MIN_DAYS}+.
         </CardDescription>
       </CardHeader>
       <CardContent>

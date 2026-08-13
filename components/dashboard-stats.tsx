@@ -105,7 +105,7 @@ export function DashboardStats({ summary }: { summary: Summary }) {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Total amount of sales" value={String(summary.soldCount)} />
           <StatCard
-            label="Lots per day"
+            label="Sales per day"
             value={formatRate(summary.avgLotsPerDay)}
             hint={
               summary.soldCount === 0

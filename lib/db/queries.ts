@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { calculateLineItem, summarize, type Summary } from "@/lib/calculations";
+import { toISODateString } from "@/lib/dates";
 import { getDb } from "@/lib/db";
 import { lineItems, type LineItemRow } from "@/lib/db/schema";
 
@@ -40,9 +41,9 @@ export function enrichItem(row: LineItemRow): ComputedItem {
     salePrice,
     shippingCost,
     notes: row.notes,
-    purchasedAt: row.purchasedAt,
-    listedAt: row.listedAt,
-    soldAt: row.soldAt,
+    purchasedAt: toISODateString(row.purchasedAt),
+    listedAt: toISODateString(row.listedAt),
+    soldAt: toISODateString(row.soldAt),
     ...calc,
   };
 }
