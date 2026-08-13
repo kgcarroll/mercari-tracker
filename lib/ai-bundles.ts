@@ -39,10 +39,6 @@ const insightOutput = z.object({
   bundles: bundleMixSchema,
 });
 
-const refineOutput = z.object({
-  bundles: bundleMixSchema,
-});
-
 function mapAction(action: "solo" | "bundle" | "hold"): InventoryAction {
   if (action === "solo") return "relist";
   return action;
@@ -165,39 +161,4 @@ ${JSON.stringify(catalog)}`,
       source: "rules",
     };
   }
-}
-
-export async function refineSmartBundles(
-  items: ComputedItem[],
-  prompt: string,
-  current: Array<{ title: string; why: string; itemIds: string[]; products: string[] }>,
-): Promise<BundleSuggestion[]> {
-  const catalog = unsoldCatalog(items);
-
-  const { output } = await generateText({
-    model: FREE_MODEL,
-    output: Output.object({ schema: refineOutput }),
-    prompt: `Update these Mercari Needoh bundle suggestions.
-
-The seller asked: ${JSON.stringify(prompt)}
-
-Keep EXACTLY 3 optional bundle alternatives.
-- Each bundle 2-4 items, different families inside a bundle (never three of the same family).
-- Follow the ask. If they exclude a product or family, do not include it.
-- Bundles may reuse items across the 3 alternatives.
-- Use only catalog item ids.
-- Titles and why should reflect the new mix.
-
-Current mixes:
-${JSON.stringify(current)}
-
-Catalog JSON:
-${JSON.stringify(catalog)}`,
-  });
-
-  const bundles = pricedBundles(items, output?.bundles ?? [], "ask");
-  if (bundles.length < 3) {
-    throw new Error("Could not build three mixes from that. Try a looser ask.");
-  }
-  return bundles.slice(0, 3);
 }
