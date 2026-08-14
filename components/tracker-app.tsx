@@ -683,6 +683,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
 
         <ItemDialogs
           item={selected}
+          lots={localItems}
           open={open}
           onSaved={() => setSelectedIds(new Set())}
           onDelete={removeItem}

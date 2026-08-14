@@ -25,12 +25,14 @@ import {
 
 export function ItemDialogs({
   item,
+  lots = [],
   open,
   onOpenChange,
   onSaved,
   onDelete,
 }: {
   item: ComputedItem | null;
+  lots?: ComputedItem[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
@@ -70,6 +72,7 @@ export function ItemDialogs({
           ) : null}
           <ItemForm
             key={item?.id ?? "new"}
+            lots={lots}
             initial={
               item
                 ? {

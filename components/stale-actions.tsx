@@ -40,7 +40,15 @@ export function StaleActions({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatMoney(row.cost)} · {sittingLabel(row.daysSitting)}
+                    {row.ask != null
+                      ? ` · ${row.askLabel ?? "Ask"} ${formatMoney(row.ask)} · floor ${formatMoney(row.floor)}`
+                      : ""}
                   </p>
+                  {row.profitAtAsk != null ? (
+                    <p className="text-xs text-muted-foreground">
+                      About {formatMoney(row.profitAtAsk)} profit at that ask after fees
+                    </p>
+                  ) : null}
                   <p className="mt-1 text-xs text-muted-foreground">{row.reason}</p>
                 </div>
                 <Badge
