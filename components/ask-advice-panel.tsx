@@ -11,7 +11,7 @@ export function AskAdvicePanel({ advice }: { advice: AskAdvice }) {
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-muted/40 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium">Ask vs keep</p>
+        <p className="text-sm font-medium">Suggested ask</p>
         <p className="text-xs text-muted-foreground">{actionCopy[advice.action]}</p>
       </div>
       <div className="grid grid-cols-3 gap-2 text-sm">
@@ -30,7 +30,7 @@ export function AskAdvicePanel({ advice }: { advice: AskAdvice }) {
       </div>
       <p className="text-xs text-muted-foreground">{advice.reason}</p>
       <p className="text-xs text-muted-foreground">
-        Copy the ask onto Mercari. Leave sale price at 0 here until it sells.
+        Copy the suggested ask onto Mercari. Leave sale price at 0 here until it sells.
       </p>
     </div>
   );
