@@ -34,14 +34,22 @@ export function StaleActions({
           <ul className="grid max-h-80 gap-3 overflow-y-auto pr-1">
             {suggestions.map((row) => (
               <li key={row.id} className="flex min-w-0 items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="grid min-w-0 gap-1">
                   <p className="truncate font-medium" title={row.product}>
                     {row.product}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatMoney(row.cost)} · {sittingLabel(row.daysSitting)}
+                    {row.ask != null
+                      ? ` · suggested ask ${formatMoney(row.ask)} · floor ${formatMoney(row.floor)}`
+                      : ""}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{row.reason}</p>
+                  {row.profitAtAsk != null ? (
+                    <p className="text-xs text-muted-foreground">
+                      About {formatMoney(row.profitAtAsk)} profit at that ask after fees
+                    </p>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">{row.reason}</p>
                 </div>
                 <Badge
                   variant={

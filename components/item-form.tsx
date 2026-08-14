@@ -2,10 +2,13 @@
 
 import { useMemo, useState } from "react";
 
+import { adviseAsk } from "@/lib/ask";
 import { calculateLineItem } from "@/lib/calculations";
+import type { ComputedItem } from "@/lib/db/queries";
 import { formatMoney, formatPercent } from "@/lib/format";
 import { STORES } from "@/lib/stores";
 import type { ItemInput } from "@/app/actions/items";
+import { AskAdvicePanel } from "@/components/ask-advice-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 type ItemFormProps = {
   initial?: Partial<ItemInput>;
+  lots?: ComputedItem[];
   submitLabel: string;
   showActiveToggle?: boolean;
   onSubmit: (input: ItemInput) => Promise<void>;
@@ -29,6 +33,7 @@ type ItemFormProps = {
 
 export function ItemForm({
   initial,
+  lots = [],
   submitLabel,
   showActiveToggle = false,
   onSubmit,
@@ -53,6 +58,25 @@ export function ItemForm({
       shippingCost: Number(shippingCost) || 0,
     });
   }, [cost, salePrice, shippingCost]);
+
+  const askAdvice = useMemo(() => {
+    const sale = Number(salePrice) || 0;
+    if (sale > 0) return null;
+    const sold = lots.filter((item) => item.status === "sold");
+    const unsold = lots.filter((item) => item.status === "unsold" && item.active);
+    return adviseAsk(
+      {
+        product,
+        cost: Number(cost) || 0,
+        shippingCost: Number(shippingCost) || 0,
+        listedAt: listedAt.trim() || null,
+        active: showActiveToggle ? active : true,
+        status: "unsold",
+      },
+      sold,
+      unsold,
+    );
+  }, [active, cost, listedAt, lots, product, salePrice, shippingCost, showActiveToggle]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -201,6 +225,8 @@ export function ItemForm({
         <PreviewStat label="Profit" value={formatMoney(preview.profit)} />
         <PreviewStat label="Profit %" value={formatPercent(preview.profitPct)} />
       </div>
+
+      {askAdvice ? <AskAdvicePanel advice={askAdvice} /> : null}
 
       <div className="grid gap-2">
         <Label htmlFor="notes">Notes</Label>

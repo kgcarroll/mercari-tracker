@@ -11,6 +11,10 @@ export type StaleSuggestion = {
   daysSitting: number | null;
   action: InventoryAction;
   reason: string;
+  ask?: number;
+  floor?: number;
+  profitAtAsk?: number | null;
+  askLabel?: "Ask" | "Drop to" | "Last solo ask";
 };
 
 export type AgingBucketKey = "fresh" | "aging" | "stale" | "undated";
@@ -170,7 +174,7 @@ function formatUsd(value: number): string {
 
 export const BUNDLE_DISCOUNT = 0.05;
 
-function soloCompSale(item: ComputedItem, sold: ComputedItem[]): number {
+export function soloCompSale(item: ComputedItem, sold: ComputedItem[]): number {
   const family = productFamily(item.product);
   const exact = median(exactFamilyCompsFor(family, sold).sales);
   if (exact != null) return exact;
