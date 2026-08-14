@@ -8,6 +8,7 @@ import { calculateLineItem, roundMoney, summarize } from "@/lib/calculations";
 import { todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 import { formatDate, formatMoney, formatPercent } from "@/lib/format";
+import { parsePlatform, platformLabel, VINTED_STORE } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardStats } from "@/components/dashboard-stats";
@@ -25,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ItemDialogs } from "@/components/item-dialogs";
 
 type Filter = "all" | "sold" | "unsold" | "inactive";
+type PlatformFilter = "all" | "mercari" | "vinted";
 
 type SortKey =
   | "product"
@@ -147,6 +149,7 @@ function SortHeader({
 export function TrackerApp({ items }: { items: ComputedItem[] }) {
   const [localItems, setLocalItems] = useState(items);
   const [filter, setFilter] = useState<Filter>("all");
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -168,18 +171,26 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
 
   const summary = useMemo(() => summarize(localItems), [localItems]);
 
+  const scopedItems = useMemo(
+    () =>
+      platformFilter === "all"
+        ? localItems
+        : localItems.filter((item) => item.platform === platformFilter),
+    [localItems, platformFilter],
+  );
+
   const activeItems = useMemo(
-    () => localItems.filter((item) => item.active),
-    [localItems],
+    () => scopedItems.filter((item) => item.active),
+    [scopedItems],
   );
   const inactiveItems = useMemo(
-    () => localItems.filter((item) => !item.active),
-    [localItems],
+    () => scopedItems.filter((item) => !item.active),
+    [scopedItems],
   );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = localItems.filter((item) => {
+    const filtered = scopedItems.filter((item) => {
       if (filter === "inactive") {
         if (item.active) return false;
       } else if (!item.active) {
@@ -190,7 +201,8 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       if (!q) return true;
       return (
         item.product.toLowerCase().includes(q) ||
-        item.store.toLowerCase().includes(q)
+        item.store.toLowerCase().includes(q) ||
+        platformLabel(item.platform).toLowerCase().includes(q)
       );
     });
 
@@ -206,7 +218,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       }
       return compareNullableNumber(a[sortKey], b[sortKey], sortDir);
     });
-  }, [filter, localItems, query, sortDir, sortKey]);
+  }, [filter, query, scopedItems, sortDir, sortKey]);
 
   const selectableVisible = visible.filter((item) => item.status === "unsold");
   const selectedItems = localItems.filter((item) => selectedIds.has(item.id));
@@ -255,9 +267,15 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
         .replace(/^BUNDLE:\s*/i, "")
         .trim(),
     );
+    const platform = parsePlatform(items[0]?.platform);
     return {
       product: `BUNDLE: ${names.join("/")}`,
-      store: stores.length === 1 ? stores[0] : "Multiple Stores",
+      store:
+        platform === "vinted"
+          ? VINTED_STORE
+          : stores.length === 1
+            ? stores[0]
+            : "Multiple Stores",
       cost: roundMoney(items.reduce((sum, item) => sum + item.cost, 0)),
       salePrice: 0,
       shippingCost: 0,
@@ -265,12 +283,18 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       listedAt: todayISODate(),
       soldAt: "",
       active: true,
+      platform,
     };
   }
 
   function createBundle() {
     if (selectedUnsold.length < 2) return;
     const sources = selectedUnsold;
+    const platforms = new Set(sources.map((source) => parsePlatform(source.platform)));
+    if (platforms.size > 1) {
+      setActionError("Bundle lots from the same platform only.");
+      return;
+    }
     const input = bundleInput(sources);
     const sourceIds = sources.map((source) => source.id);
     const sourceIdSet = new Set(sourceIds);
@@ -279,6 +303,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       cost: input.cost,
       salePrice: 0,
       shippingCost: 0,
+      platform: input.platform,
     });
 
     setActionError(null);
@@ -310,6 +335,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
             active: true,
             bundledIntoId: null,
             bundledIntoProduct: null,
+            platform: input.platform,
             ...money,
           },
           ...previous.map((item) =>
@@ -447,6 +473,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       <div className="grid min-w-0 gap-4">
         <div className="sticky top-14 z-40 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-2">
           <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
             <TabsList>
               <TabsTrigger value="all">All ({activeItems.length})</TabsTrigger>
@@ -461,6 +488,17 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <Tabs
+            value={platformFilter}
+            onValueChange={(value) => setPlatformFilter(value as PlatformFilter)}
+          >
+            <TabsList>
+              <TabsTrigger value="all">All platforms</TabsTrigger>
+              <TabsTrigger value="mercari">Mercari</TabsTrigger>
+              <TabsTrigger value="vinted">Vinted</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          </div>
           <div className="flex min-w-0 gap-2">
             <Input
               value={query}
@@ -646,9 +684,18 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
                 </TableCell>
                 <TableCell className="max-w-0 truncate font-medium" title={item.product}>
                   <span className="block truncate">{item.product}</span>
-                  {!item.active && item.bundledIntoProduct ? (
+                  {item.platform === "vinted" ||
+                  (!item.active && item.bundledIntoProduct) ? (
                     <span className="block truncate text-xs font-normal text-muted-foreground">
-                      In {item.bundledIntoProduct}
+                      {item.platform === "vinted" ? "Vinted" : ""}
+                      {item.platform === "vinted" &&
+                      !item.active &&
+                      item.bundledIntoProduct
+                        ? " · "
+                        : ""}
+                      {!item.active && item.bundledIntoProduct
+                        ? `In ${item.bundledIntoProduct}`
+                        : ""}
                     </span>
                   ) : null}
                 </TableCell>

@@ -37,7 +37,7 @@ const capitalConfig = {
 export function DashboardCharts({ summary }: { summary: Summary }) {
   const moneyData = [
     { metric: "Gross sales", amount: summary.totalSales },
-    { metric: "Mercari fees", amount: summary.totalFees },
+    { metric: "Fees", amount: summary.totalFees },
     { metric: "Realized profit", amount: summary.totalProfit },
     { metric: "Unsold inventory", amount: summary.unsoldCost },
     { metric: "Net profit", amount: summary.netProfit },

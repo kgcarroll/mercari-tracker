@@ -326,11 +326,17 @@ export function buildInsights(
   today = nowAppDate(),
 ): InventoryInsights {
   const sellTimes = items
+    .filter((item) => item.platform !== "vinted")
     .map(daysToSell)
     .filter((value): value is number => value != null);
   const medianDaysToSell = median(sellTimes);
-  const sold = items.filter((item) => item.status === "sold");
-  const unsold = items.filter((item) => item.status === "unsold" && item.active);
+  const sold = items.filter(
+    (item) => item.status === "sold" && item.platform !== "vinted",
+  );
+  const unsold = items.filter(
+    (item) =>
+      item.status === "unsold" && item.active && item.platform !== "vinted",
+  );
 
   const stale: StaleSuggestion[] = unsold
     .map((item) => {

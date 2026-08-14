@@ -6,7 +6,12 @@ import { adviseAsk } from "@/lib/ask";
 import { calculateLineItem } from "@/lib/calculations";
 import type { ComputedItem } from "@/lib/db/queries";
 import { formatMoney, formatPercent } from "@/lib/format";
-import { STORES } from "@/lib/stores";
+import {
+  parsePlatform,
+  VINTED_STORE,
+  type Platform,
+} from "@/lib/platform";
+import { MERCARI_STORES, VINTED_STORES } from "@/lib/stores";
 import type { ItemInput } from "@/app/actions/items";
 import { AskAdvicePanel } from "@/components/ask-advice-panel";
 import { Button } from "@/components/ui/button";
@@ -40,7 +45,14 @@ export function ItemForm({
   onCancel,
 }: ItemFormProps) {
   const [product, setProduct] = useState(initial?.product ?? "");
-  const [store, setStore] = useState(initial?.store ?? "Hallmark");
+  const [platform, setPlatform] = useState<Platform>(
+    parsePlatform(initial?.platform),
+  );
+  const [store, setStore] = useState(
+    parsePlatform(initial?.platform) === "vinted"
+      ? VINTED_STORE
+      : (initial?.store ?? "Hallmark"),
+  );
   const [cost, setCost] = useState(String(initial?.cost ?? ""));
   const [salePrice, setSalePrice] = useState(String(initial?.salePrice ?? "0"));
   const [shippingCost, setShippingCost] = useState(String(initial?.shippingCost ?? ""));
@@ -56,14 +68,20 @@ export function ItemForm({
       cost: Number(cost) || 0,
       salePrice: Number(salePrice) || 0,
       shippingCost: Number(shippingCost) || 0,
+      platform,
     });
-  }, [cost, salePrice, shippingCost]);
+  }, [cost, platform, salePrice, shippingCost]);
 
   const askAdvice = useMemo(() => {
     const sale = Number(salePrice) || 0;
-    if (sale > 0) return null;
-    const sold = lots.filter((item) => item.status === "sold");
-    const unsold = lots.filter((item) => item.status === "unsold" && item.active);
+    if (sale > 0 || platform === "vinted") return null;
+    const sold = lots.filter(
+      (item) => item.status === "sold" && item.platform !== "vinted",
+    );
+    const unsold = lots.filter(
+      (item) =>
+        item.status === "unsold" && item.active && item.platform !== "vinted",
+    );
     return adviseAsk(
       {
         product,
@@ -76,7 +94,17 @@ export function ItemForm({
       sold,
       unsold,
     );
-  }, [active, cost, listedAt, lots, product, salePrice, shippingCost, showActiveToggle]);
+  }, [
+    active,
+    cost,
+    listedAt,
+    lots,
+    platform,
+    product,
+    salePrice,
+    shippingCost,
+    showActiveToggle,
+  ]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -93,6 +121,7 @@ export function ItemForm({
         listedAt,
         soldAt,
         active: showActiveToggle ? active : true,
+        platform,
       });
     } catch (err) {
       const digest = err instanceof Error && "digest" in err;
@@ -109,28 +138,59 @@ export function ItemForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <div className="grid gap-2">
+        <Label htmlFor="platform">Platform</Label>
+        <Select
+          value={platform}
+          onValueChange={(value) => {
+            const next = parsePlatform(value);
+            setPlatform(next);
+            setStore(next === "vinted" ? VINTED_STORE : "Hallmark");
+            if (next === "vinted") setShippingCost("0");
+          }}
+        >
+          <SelectTrigger id="platform" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mercari">Mercari</SelectItem>
+            <SelectItem value="vinted">Vinted</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-2">
         <Label htmlFor="product">Product</Label>
         <Input
           id="product"
           value={product}
           onChange={(event) => setProduct(event.target.value)}
-          placeholder="Needoh Sugar Skull Cat (Pink)"
+          placeholder={
+            platform === "vinted"
+              ? "Women's tees lot (8)"
+              : "Needoh Sugar Skull Cat (Pink)"
+          }
           required
         />
       </div>
 
       <div className="grid gap-2">
         <Label htmlFor="store">Store</Label>
-        <Select value={store} onValueChange={setStore}>
+        <Select
+          value={store}
+          onValueChange={setStore}
+          disabled={platform === "vinted"}
+        >
           <SelectTrigger id="store" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STORES.map((name) => (
-              <SelectItem key={name} value={name}>
-                {name}
-              </SelectItem>
-            ))}
+            {(platform === "vinted" ? VINTED_STORES : MERCARI_STORES).map(
+              (name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ),
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -175,8 +235,9 @@ export function ItemForm({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Leave sale price at 0 for unsold inventory. Fee is 10% of (sale + shipping)
-        and only applies once it sells. Profit is sale − fee − cost.
+        {platform === "vinted"
+          ? "Vinted has no seller fee. Profit is sale − cost. Leave shipping at 0 unless you paid it. Cost can be 0 for closet clothes."
+          : "Leave sale price at 0 for unsold inventory. Fee is 10% of (sale + shipping) and only applies once it sells. Profit is sale − fee − cost."}
       </p>
 
       <div className="grid grid-cols-2 gap-3">

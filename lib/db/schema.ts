@@ -15,6 +15,7 @@ export const lineItems = pgTable("line_items", {
   soldAt: date("sold_at"),
   active: boolean("active").notNull().default(true),
   bundledIntoId: uuid("bundled_into_id"),
+  platform: text("platform").notNull().default("mercari"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

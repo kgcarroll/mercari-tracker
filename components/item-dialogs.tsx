@@ -85,8 +85,9 @@ export function ItemDialogs({
                     listedAt: item.listedAt ?? "",
                     soldAt: item.soldAt ?? "",
                     active: item.active,
+                    platform: item.platform,
                   }
-                : { salePrice: 0, active: true }
+                : { salePrice: 0, active: true, platform: "mercari" }
             }
             submitLabel={isEdit ? "Save changes" : "Add item"}
             showActiveToggle={isEdit}

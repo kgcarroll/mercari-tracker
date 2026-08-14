@@ -145,6 +145,7 @@ function formatUsd(value: number): string {
 export function buildRestockGuide(items: ComputedItem[]): FamilyRestock[] {
   const groups = new Map<string, ComputedItem[]>();
   for (const item of items) {
+    if (item.platform === "vinted") continue;
     if (isBundle(item.product)) continue;
     const family = productFamily(item.product);
     if (!family) continue;

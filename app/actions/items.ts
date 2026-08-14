@@ -9,6 +9,7 @@ import { requireAppUser } from "@/lib/auth";
 import { todayISODate } from "@/lib/dates";
 import { getDb } from "@/lib/db";
 import { lineItems } from "@/lib/db/schema";
+import { parsePlatform, VINTED_STORE } from "@/lib/platform";
 
 const itemSchema = z.object({
   product: z.string().trim().min(1, "Product is required"),
@@ -21,6 +22,7 @@ const itemSchema = z.object({
   listedAt: z.string().optional(),
   soldAt: z.string().optional(),
   active: z.boolean().optional(),
+  platform: z.enum(["mercari", "vinted"]).optional(),
 });
 
 export type ItemInput = z.infer<typeof itemSchema>;
@@ -42,7 +44,7 @@ function toRow(input: ItemInput) {
 
   return {
     product: input.product,
-    store: input.store,
+    store: input.platform === "vinted" ? VINTED_STORE : input.store,
     cost: money(input.cost),
     salePrice: money(input.salePrice),
     shippingCost: money(input.shippingCost),
@@ -50,6 +52,7 @@ function toRow(input: ItemInput) {
     purchasedAt: emptyToNull(input.purchasedAt),
     listedAt: emptyToNull(input.listedAt),
     soldAt,
+    platform: input.platform ?? "mercari",
     updatedAt: new Date(),
   };
 }
@@ -201,8 +204,17 @@ export async function createBundleFromItems(
       return { ok: false, message: "Pick at least two lots to bundle." };
     }
 
-    const bundleId = crypto.randomUUID();
     const db = getDb();
+    const sources = await db
+      .select({ platform: lineItems.platform })
+      .from(lineItems)
+      .where(inArray(lineItems.id, uniqueIds));
+    const platforms = new Set(sources.map((row) => parsePlatform(row.platform)));
+    if (platforms.size > 1) {
+      return { ok: false, message: "Bundle lots from the same platform only." };
+    }
+
+    const bundleId = crypto.randomUUID();
 
     await db.batch([
       db.insert(lineItems).values({

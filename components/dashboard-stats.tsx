@@ -83,7 +83,7 @@ export function DashboardStats({ summary }: { summary: Summary }) {
                   : `${formatMoney(summary.totalSales)} over ${summary.salesDayCount} ${summary.salesDayCount === 1 ? "day" : "days"}`
             }
           />
-          <StatCard label="Total Mercari fees" value={formatMoney(summary.totalFees)} />
+          <StatCard label="Total fees" value={formatMoney(summary.totalFees)} />
           <StatCard label="Total cost of all lots" value={formatMoney(summary.totalSpent)} />
           <StatCard
             label="Overall ROI"
