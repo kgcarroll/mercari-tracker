@@ -1,4 +1,4 @@
-import { date, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const lineItems = pgTable("line_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -13,6 +13,8 @@ export const lineItems = pgTable("line_items", {
   purchasedAt: date("purchased_at"),
   listedAt: date("listed_at"),
   soldAt: date("sold_at"),
+  active: boolean("active").notNull().default(true),
+  bundledIntoId: uuid("bundled_into_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

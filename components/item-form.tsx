@@ -9,6 +9,7 @@ import type { ItemInput } from "@/app/actions/items";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -21,11 +22,18 @@ import { Textarea } from "@/components/ui/textarea";
 type ItemFormProps = {
   initial?: Partial<ItemInput>;
   submitLabel: string;
+  showActiveToggle?: boolean;
   onSubmit: (input: ItemInput) => Promise<void>;
   onCancel: () => void;
 };
 
-export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormProps) {
+export function ItemForm({
+  initial,
+  submitLabel,
+  showActiveToggle = false,
+  onSubmit,
+  onCancel,
+}: ItemFormProps) {
   const [product, setProduct] = useState(initial?.product ?? "");
   const [store, setStore] = useState(initial?.store ?? "Hallmark");
   const [cost, setCost] = useState(String(initial?.cost ?? ""));
@@ -34,6 +42,7 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [listedAt, setListedAt] = useState(initial?.listedAt ?? "");
   const [soldAt, setSoldAt] = useState(initial?.soldAt ?? "");
+  const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -53,21 +62,28 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
       await onSubmit({
         product,
         store,
-        cost: Number(cost),
-        salePrice: Number(salePrice),
-        shippingCost: Number(shippingCost),
+        cost: Number(cost) || 0,
+        salePrice: Number(salePrice) || 0,
+        shippingCost: Number(shippingCost) || 0,
         notes,
         listedAt,
         soldAt,
+        active: showActiveToggle ? active : true,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save item");
+      const digest = err instanceof Error && "digest" in err;
+      setError(
+        !digest && err instanceof Error ? err.message : "Could not save. Try again.",
+      );
+    } finally {
       setPending(false);
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
       <div className="grid gap-2">
         <Label htmlFor="product">Product</Label>
         <Input
@@ -158,8 +174,26 @@ export function ItemForm({ initial, submitLabel, onSubmit, onCancel }: ItemFormP
             onChange={(event) => setSoldAt(event.target.value)}
             disabled={!(Number(salePrice) > 0)}
           />
+          </div>
         </div>
-      </div>
+
+      {showActiveToggle ? (
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+          <div className="grid gap-1">
+            <Label htmlFor="active">In rotation</Label>
+            <p className="text-xs text-muted-foreground">
+              Off means this lot is parked. It stays in the book but is left out of
+              unsold cost, Insights, and Buy / Skip.
+            </p>
+          </div>
+          <Switch
+            id="active"
+            checked={active}
+            onCheckedChange={setActive}
+            size="sm"
+          />
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3 text-sm sm:grid-cols-4">
         <PreviewStat label="Fee" value={formatMoney(preview.mercariFee)} />

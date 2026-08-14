@@ -1,13 +1,11 @@
 import { AppHeader } from "@/components/app-header";
-import { DashboardCharts } from "@/components/dashboard-charts";
-import { DashboardStats } from "@/components/dashboard-stats";
 import { TrackerApp } from "@/components/tracker-app";
 import { requireAppUser } from "@/lib/auth";
-import { getDashboard } from "@/lib/db/queries";
+import { listItems } from "@/lib/db/queries";
 
 export default async function Home() {
   await requireAppUser();
-  const { items, summary } = await getDashboard();
+  const items = await listItems();
 
   return (
     <div className="flex min-h-full flex-col">
@@ -20,8 +18,6 @@ export default async function Home() {
             Mercari fee is 10% of (sale + shipping). Sold profit is sale − fee − cost.
           </p>
         </div>
-        <DashboardStats summary={summary} />
-        <DashboardCharts summary={summary} />
         <TrackerApp items={items} />
       </main>
     </div>

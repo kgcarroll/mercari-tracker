@@ -326,7 +326,7 @@ export function buildInsights(
     .filter((value): value is number => value != null);
   const medianDaysToSell = median(sellTimes);
   const sold = items.filter((item) => item.status === "sold");
-  const unsold = items.filter((item) => item.status === "unsold");
+  const unsold = items.filter((item) => item.status === "unsold" && item.active);
 
   const stale: StaleSuggestion[] = unsold
     .map((item) => {

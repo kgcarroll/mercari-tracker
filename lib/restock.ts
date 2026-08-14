@@ -156,7 +156,7 @@ export function buildRestockGuide(items: ComputedItem[]): FamilyRestock[] {
   const rows: FamilyRestock[] = [];
   for (const [family, group] of groups) {
     const sold = group.filter((item) => item.status === "sold");
-    const unsold = group.filter((item) => item.status === "unsold");
+    const unsold = group.filter((item) => item.status === "unsold" && item.active);
     const soldCost = roundMoney(sold.reduce((sum, item) => sum + item.cost, 0));
     const totalProfit = roundMoney(
       sold.reduce((sum, item) => sum + (item.profit ?? 0), 0),

@@ -1,7 +1,10 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import * as schema from "./schema";
+
+// Undo any leftover timeout wrapper from hot reload.
+neonConfig.fetchFunction = fetch;
 
 export function getDb() {
   const url = process.env.DATABASE_URL;
