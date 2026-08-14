@@ -16,6 +16,9 @@ export type ComputedItem = {
   purchasedAt: string | null;
   listedAt: string | null;
   soldAt: string | null;
+  active: boolean;
+  bundledIntoId: string | null;
+  bundledIntoProduct: string | null;
   mercariFee: number;
   netSale: number;
   profit: number | null;
@@ -27,7 +30,10 @@ function toNumber(value: string | number): number {
   return typeof value === "number" ? value : Number(value);
 }
 
-export function enrichItem(row: LineItemRow): ComputedItem {
+export function enrichItem(
+  row: LineItemRow,
+  bundledIntoProduct: string | null = null,
+): ComputedItem {
   const cost = toNumber(row.cost);
   const salePrice = toNumber(row.salePrice);
   const shippingCost = toNumber(row.shippingCost);
@@ -44,14 +50,26 @@ export function enrichItem(row: LineItemRow): ComputedItem {
     purchasedAt: toISODateString(row.purchasedAt),
     listedAt: toISODateString(row.listedAt),
     soldAt: toISODateString(row.soldAt),
+    active: row.active,
+    bundledIntoId: row.bundledIntoId,
+    bundledIntoProduct,
     ...calc,
   };
 }
 
 export async function listItems(): Promise<ComputedItem[]> {
   const db = getDb();
-  const rows = await db.select().from(lineItems).orderBy(desc(lineItems.createdAt));
-  return rows.map(enrichItem);
+  let rows;
+  try {
+    rows = await db.select().from(lineItems).orderBy(desc(lineItems.createdAt));
+  } catch {
+    rows = await db.select().from(lineItems).orderBy(desc(lineItems.createdAt));
+  }
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return rows.map((row) => {
+    const parent = row.bundledIntoId ? byId.get(row.bundledIntoId) : undefined;
+    return enrichItem(row, parent?.product ?? null);
+  });
 }
 
 export async function getItem(id: string): Promise<ComputedItem | null> {

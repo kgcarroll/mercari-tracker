@@ -11,6 +11,8 @@ export type MoneyInputs = {
 export type SummaryItem = MoneyInputs & {
   listedAt?: string | null;
   soldAt?: string | null;
+  /** Inactive unsold lots are skipped in inventory totals. */
+  active?: boolean;
 };
 
 export type LineItemTotals = {
@@ -101,7 +103,7 @@ export function summarize(
   items: Array<SummaryItem & { profit?: number | null }>,
   today = nowAppDate(),
 ): Summary {
-  const lotCount = items.length;
+  let lotCount = 0;
   let soldCount = 0;
   let totalSpent = 0;
   let soldCost = 0;
@@ -113,6 +115,13 @@ export function summarize(
 
   for (const item of items) {
     const calc = calculateLineItem(item);
+    const inRotation = item.active !== false;
+
+    if (calc.status !== "sold" && !inRotation) {
+      continue;
+    }
+
+    lotCount += 1;
     totalSpent = roundMoney(totalSpent + item.cost);
 
     if (calc.status === "sold") {

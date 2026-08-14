@@ -49,7 +49,7 @@ function unsoldCatalog(
   today = nowAppDate(),
   staleIds?: Set<string>,
 ) {
-  const unsold = items.filter((item) => item.status === "unsold");
+  const unsold = items.filter((item) => item.status === "unsold" && item.active);
   const sold = items.filter((item) => item.status === "sold");
   return unsold.map((item) => {
     const family = productFamily(item.product);
@@ -78,7 +78,7 @@ function pricedBundles(
   mixes: Array<{ title: string; why: string; itemIds: string[] }>,
   prefix: string,
 ): BundleSuggestion[] {
-  const unsold = items.filter((item) => item.status === "unsold");
+  const unsold = items.filter((item) => item.status === "unsold" && item.active);
   const sold = items.filter((item) => item.status === "sold");
   return bundlesFromIds(
     unsold,
@@ -101,7 +101,7 @@ export async function suggestSmartInsights(
   bundles: BundleSuggestion[];
   source: "ai" | "rules";
 }> {
-  const unsold = items.filter((item) => item.status === "unsold");
+  const unsold = items.filter((item) => item.status === "unsold" && item.active);
   const sold = items.filter((item) => item.status === "sold");
   const fallbackBundles = ruleBasedBundles(unsold, sold);
   const catalog = unsoldCatalog(

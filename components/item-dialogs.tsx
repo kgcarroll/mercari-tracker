@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { createItem, deleteItem, updateItem, type ItemInput } from "@/app/actions/items";
+import { createItem, updateItem, type ItemInput } from "@/app/actions/items";
 import type { ComputedItem } from "@/lib/db/queries";
 import { ItemForm } from "@/components/item-form";
 import {
@@ -27,10 +27,14 @@ export function ItemDialogs({
   item,
   open,
   onOpenChange,
+  onSaved,
+  onDelete,
 }: {
   item: ComputedItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+  onDelete?: (item: ComputedItem) => Promise<void>;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isEdit = Boolean(item);
@@ -41,23 +45,29 @@ export function ItemDialogs({
     } else {
       await createItem(input);
     }
+    onSaved?.();
     onOpenChange(false);
   }
 
   async function handleDelete() {
     if (!item) return;
-    await deleteItem(item.id);
     setConfirmDelete(false);
     onOpenChange(false);
+    await onDelete?.(item);
   }
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[min(90dvh,44rem)] max-w-lg overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit item" : "Add item"}</DialogTitle>
           </DialogHeader>
+          {isEdit && item?.bundledIntoProduct ? (
+            <p className="text-sm text-muted-foreground">
+              This lot is linked to {item.bundledIntoProduct}.
+            </p>
+          ) : null}
           <ItemForm
             key={item?.id ?? "new"}
             initial={
@@ -71,10 +81,12 @@ export function ItemDialogs({
                     notes: item.notes ?? "",
                     listedAt: item.listedAt ?? "",
                     soldAt: item.soldAt ?? "",
+                    active: item.active,
                   }
-                : { salePrice: 0 }
+                : { salePrice: 0, active: true }
             }
             submitLabel={isEdit ? "Save changes" : "Add item"}
+            showActiveToggle={isEdit}
             onSubmit={handleSubmit}
             onCancel={() => onOpenChange(false)}
           />
