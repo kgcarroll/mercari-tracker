@@ -24,14 +24,11 @@ const moneyConfig = {
   amount: { label: "Amount", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
-const lotsConfig = {
-  sold: { label: "Sold", color: "var(--chart-1)" },
-  unsold: { label: "Unsold", color: "var(--chart-2)" },
-} satisfies ChartConfig;
-
-const capitalConfig = {
-  sold: { label: "Sold cost", color: "var(--chart-1)" },
-  unsold: { label: "Unsold inventory cost", color: "var(--chart-2)" },
+const platformSplitConfig = {
+  soldMercari: { label: "Sold Mercari", color: "#5E6DF2" },
+  soldVinted: { label: "Sold Vinted", color: "#007782" },
+  unsoldMercari: { label: "Unsold Mercari", color: "#C5CBF9" },
+  unsoldVinted: { label: "Unsold Vinted", color: "#9DCDD2" },
 } satisfies ChartConfig;
 
 const platformConfig = {
@@ -47,25 +44,68 @@ export function DashboardCharts({
   byPlatform: { mercari: Summary; vinted: Summary };
 }) {
   const moneyData = [
-    { metric: "Gross sales", amount: summary.totalSales },
-    { metric: "Fees", amount: summary.totalFees },
-    { metric: "Realized profit", amount: summary.totalProfit },
-    { metric: "Unsold inventory", amount: summary.unsoldCost },
-    { metric: "Net profit", amount: summary.netProfit },
+    { metric: "Gross sales", amount: summary.totalSales, fill: "#4F7CC8" },
+    { metric: "Fees", amount: summary.totalFees, fill: "#C55252" },
+    { metric: "Realized profit", amount: summary.totalProfit, fill: "#3D9A5C" },
+    { metric: "Unsold inventory", amount: summary.unsoldCost, fill: "#C9943A" },
+    {
+      metric: "Net profit",
+      amount: summary.netProfit,
+      fill: summary.netProfit < 0 ? "#B04444" : "#348055",
+    },
   ];
 
   const lotsData = [
-    { key: "sold", name: "Sold", value: summary.soldCount, fill: "var(--color-sold)" },
-    { key: "unsold", name: "Unsold", value: summary.unsoldCount, fill: "var(--color-unsold)" },
+    {
+      key: "soldMercari",
+      name: "Sold Mercari",
+      value: byPlatform.mercari.soldCount,
+      fill: "var(--color-soldMercari)",
+    },
+    {
+      key: "soldVinted",
+      name: "Sold Vinted",
+      value: byPlatform.vinted.soldCount,
+      fill: "var(--color-soldVinted)",
+    },
+    {
+      key: "unsoldMercari",
+      name: "Unsold Mercari",
+      value: byPlatform.mercari.unsoldCount,
+      fill: "var(--color-unsoldMercari)",
+    },
+    {
+      key: "unsoldVinted",
+      name: "Unsold Vinted",
+      value: byPlatform.vinted.unsoldCount,
+      fill: "var(--color-unsoldVinted)",
+    },
   ];
 
   const capitalData = [
-    { key: "sold", name: "Sold cost", value: summary.soldCost, fill: "var(--color-sold)" },
     {
-      key: "unsold",
-      name: "Unsold inventory cost",
-      value: summary.unsoldCost,
-      fill: "var(--color-unsold)",
+      key: "soldMercari",
+      name: "Sold Mercari",
+      value: byPlatform.mercari.soldCost,
+      fill: "var(--color-soldMercari)",
+    },
+    {
+      key: "soldVinted",
+      name: "Sold Vinted",
+      value: byPlatform.vinted.soldCost,
+      fill: "var(--color-soldVinted)",
+    },
+    {
+      key: "unsoldMercari",
+      name: "Unsold Mercari",
+      value: byPlatform.mercari.unsoldCost,
+      fill: "var(--color-unsoldMercari)",
+    },
+    {
+      key: "unsoldVinted",
+      name: "Unsold Vinted",
+      value: byPlatform.vinted.unsoldCost,
+      fill: "var(--color-unsoldVinted)",
     },
   ];
 
@@ -148,7 +188,11 @@ export function DashboardCharts({
                   />
                 }
               />
-              <Bar dataKey="amount" fill="var(--color-amount)" radius={6} />
+              <Bar dataKey="amount" radius={6}>
+                {moneyData.map((row) => (
+                  <Cell key={row.metric} fill={row.fill} />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>
@@ -158,11 +202,14 @@ export function DashboardCharts({
         <CardHeader>
           <CardTitle>Items sold vs unsold</CardTitle>
           <CardDescription>
-            {summary.soldCount} sold · {summary.unsoldCount} unsold inventory
+            {summary.soldCount} sold ({byPlatform.mercari.soldCount} Mercari ·{" "}
+            {byPlatform.vinted.soldCount} Vinted) · {summary.unsoldCount} unsold (
+            {byPlatform.mercari.unsoldCount} Mercari · {byPlatform.vinted.unsoldCount}{" "}
+            Vinted)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={lotsConfig} className="mx-auto aspect-square max-h-64">
+          <ChartContainer config={platformSplitConfig} className="mx-auto aspect-square max-h-64">
             <PieChart>
               <ChartTooltip
                 content={<ChartTooltipContent nameKey="key" hideLabel />}
@@ -182,12 +229,15 @@ export function DashboardCharts({
         <CardHeader>
           <CardTitle>Capital in sold vs sitting</CardTitle>
           <CardDescription>
-            {formatMoney(summary.soldCost)} sold cost ·{" "}
-            {formatMoney(summary.unsoldCost)} unsold inventory cost
+            {formatMoney(summary.soldCost)} sold ({formatMoney(byPlatform.mercari.soldCost)}{" "}
+            Mercari · {formatMoney(byPlatform.vinted.soldCost)} Vinted) ·{" "}
+            {formatMoney(summary.unsoldCost)} unsold (
+            {formatMoney(byPlatform.mercari.unsoldCost)} Mercari ·{" "}
+            {formatMoney(byPlatform.vinted.unsoldCost)} Vinted)
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={capitalConfig} className="mx-auto aspect-square max-h-64">
+          <ChartContainer config={platformSplitConfig} className="mx-auto aspect-square max-h-64">
             <PieChart>
               <ChartTooltip
                 content={
