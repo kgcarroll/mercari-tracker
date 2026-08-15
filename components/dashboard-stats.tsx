@@ -119,13 +119,22 @@ export function DashboardStats({
             value={formatMoney(summary.totalProfit)}
             hint="Sold lots only"
           />
-          <StatCard
-            large
-            label="Unsold inventory cost"
-            value={formatMoney(summary.unsoldCost)}
-            valueClassName="text-red-700 dark:text-red-400"
-            hint={`${summary.unsoldCount} lots still on the shelf`}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-muted-foreground text-xs font-medium">
+                Unsold inventory cost
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-3">
+              <p className="text-3xl font-semibold tracking-tight text-red-700 dark:text-red-400">
+                {formatMoney(summary.unsoldCost)}
+              </p>
+              <div className="grid justify-items-end gap-1 text-xs text-muted-foreground">
+                <p>Mercari: {formatMoney(byPlatform.mercari.unsoldCost)}</p>
+                <p>Vinted: {formatMoney(byPlatform.vinted.unsoldCost)}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard label="Gross sales" value={formatMoney(summary.totalSales)} />
