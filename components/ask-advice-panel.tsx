@@ -5,6 +5,7 @@ const actionCopy: Record<AskAdvice["action"], string> = {
   relist: "List solo",
   bundle: "Bundle instead",
   hold: "Hold",
+  drop: "Drop price",
 };
 
 export function AskAdvicePanel({ advice }: { advice: AskAdvice }) {

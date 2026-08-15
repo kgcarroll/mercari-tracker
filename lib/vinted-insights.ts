@@ -60,38 +60,38 @@ export function buildVintedInsights(
     (item) => item.status === "sold" && item.platform === "vinted",
   );
 
-  const stale: StaleSuggestion[] = unsold
-    .map((item) => {
-      const sitting = daysSitting(item, today);
-      if (sitting == null) {
-        return {
-          id: item.id,
-          product: item.product,
-          cost: item.cost,
-          daysSitting: sitting,
-          action: "hold" as const,
-          reason: "Add a posted date so we know when to drop the ask.",
-        };
-      }
-      if (!shouldDropVintedListing(sitting, goal, VINTED_DROP_AFTER_DAYS)) {
-        return null;
-      }
-      return {
+  const stale: StaleSuggestion[] = [];
+  for (const item of unsold) {
+    const sitting = daysSitting(item, today);
+    if (sitting == null) {
+      stale.push({
         id: item.id,
         product: item.product,
         cost: item.cost,
-        daysSitting: sitting,
-        action: "drop" as const,
-        reason: `${sitting} days sitting. Drop the ask so it moves.`,
-      };
-    })
-    .filter((row): row is StaleSuggestion => row != null)
-    .sort((a, b) => {
-      if (a.daysSitting == null && b.daysSitting == null) return b.cost - a.cost;
-      if (a.daysSitting == null) return 1;
-      if (b.daysSitting == null) return -1;
-      return b.daysSitting - a.daysSitting || b.cost - a.cost;
+        daysSitting: null,
+        action: "hold",
+        reason: "Add a posted date so we know when to drop the ask.",
+      });
+      continue;
+    }
+    if (!shouldDropVintedListing(sitting, goal, VINTED_DROP_AFTER_DAYS)) {
+      continue;
+    }
+    stale.push({
+      id: item.id,
+      product: item.product,
+      cost: item.cost,
+      daysSitting: sitting,
+      action: "drop",
+      reason: `${sitting} days sitting. Drop the ask so it moves.`,
     });
+  }
+  stale.sort((a, b) => {
+    if (a.daysSitting == null && b.daysSitting == null) return b.cost - a.cost;
+    if (a.daysSitting == null) return 1;
+    if (b.daysSitting == null) return -1;
+    return b.daysSitting - a.daysSitting || b.cost - a.cost;
+  });
 
   const agingMap: Record<AgingBucketKey, AgingBucket> = {
     fresh: { key: "fresh", label: "Fresh", count: 0, cost: 0 },

@@ -22,7 +22,7 @@ export default async function InsightsPage({
   searchParams?: Promise<{ platform?: string | string[] }>;
 }) {
   await requireAppUser();
-  const params = await Promise.resolve(searchParams ?? {});
+  const params = (await searchParams) ?? {};
   const raw = Array.isArray(params.platform) ? params.platform[0] : params.platform;
   const platform = raw === "vinted" ? "vinted" : "mercari";
   const { items } = await getDashboard();
