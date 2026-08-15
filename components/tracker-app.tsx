@@ -701,20 +701,21 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
                     aria-label={`Select ${item.product}`}
                   />
                 </TableCell>
-                <TableCell className="max-w-0 truncate font-medium" title={item.product}>
-                  <span className="block truncate">{item.product}</span>
-                  {item.platform === "vinted" ||
-                  (!item.active && item.bundledIntoProduct) ? (
+                <TableCell
+                  className="max-w-0 truncate font-medium"
+                  title={
+                    item.platform === "vinted"
+                      ? `${item.product} (Vinted)`
+                      : item.product
+                  }
+                >
+                  <span className="block truncate">
+                    {item.product}
+                    {item.platform === "vinted" ? " (Vinted)" : ""}
+                  </span>
+                  {!item.active && item.bundledIntoProduct ? (
                     <span className="block truncate text-xs font-normal text-muted-foreground">
-                      {item.platform === "vinted" ? "Vinted" : ""}
-                      {item.platform === "vinted" &&
-                      !item.active &&
-                      item.bundledIntoProduct
-                        ? " · "
-                        : ""}
-                      {!item.active && item.bundledIntoProduct
-                        ? `In ${item.bundledIntoProduct}`
-                        : ""}
+                      In {item.bundledIntoProduct}
                     </span>
                   ) : null}
                 </TableCell>
