@@ -34,7 +34,18 @@ const capitalConfig = {
   unsold: { label: "Unsold inventory cost", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-export function DashboardCharts({ summary }: { summary: Summary }) {
+const platformConfig = {
+  mercari: { label: "Mercari", color: "#5E6DF2" },
+  vinted: { label: "Vinted", color: "#007782" },
+} satisfies ChartConfig;
+
+export function DashboardCharts({
+  summary,
+  byPlatform,
+}: {
+  summary: Summary;
+  byPlatform: { mercari: Summary; vinted: Summary };
+}) {
   const moneyData = [
     { metric: "Gross sales", amount: summary.totalSales },
     { metric: "Fees", amount: summary.totalFees },
@@ -58,8 +69,60 @@ export function DashboardCharts({ summary }: { summary: Summary }) {
     },
   ];
 
+  const platformMoney = [
+    {
+      metric: "Gross sales",
+      mercari: byPlatform.mercari.totalSales,
+      vinted: byPlatform.vinted.totalSales,
+    },
+    {
+      metric: "Realized profit",
+      mercari: byPlatform.mercari.totalProfit,
+      vinted: byPlatform.vinted.totalProfit,
+    },
+    {
+      metric: "Fees",
+      mercari: byPlatform.mercari.totalFees,
+      vinted: byPlatform.vinted.totalFees,
+    },
+  ];
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Mercari vs Vinted</CardTitle>
+          <CardDescription>
+            Gross sales and realized profit by platform. Combined net profit stays
+            in the snapshot below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={platformConfig} className="aspect-auto h-64 w-full">
+            <BarChart data={platformMoney} margin={{ left: 8, right: 8 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="metric" tickLine={false} axisLine={false} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(value: number) => `$${value}`}
+                width={48}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value) => formatMoney(Number(value))}
+                  />
+                }
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="mercari" fill="var(--color-mercari)" radius={6} />
+              <Bar dataKey="vinted" fill="var(--color-vinted)" radius={6} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Money snapshot</CardTitle>

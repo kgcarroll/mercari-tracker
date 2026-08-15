@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { calculateLineItem, summarize, type Summary } from "@/lib/calculations";
 import { toISODateString } from "@/lib/dates";
-import { getDb } from "@/lib/db";
+import { getDb, withDbRetry } from "@/lib/db";
 import { lineItems, type LineItemRow } from "@/lib/db/schema";
 import { parsePlatform } from "@/lib/platform";
 
@@ -63,12 +63,9 @@ export function enrichItem(
 
 export async function listItems(): Promise<ComputedItem[]> {
   const db = getDb();
-  let rows;
-  try {
-    rows = await db.select().from(lineItems).orderBy(desc(lineItems.createdAt));
-  } catch {
-    rows = await db.select().from(lineItems).orderBy(desc(lineItems.createdAt));
-  }
+  const rows = await withDbRetry(() =>
+    db.select().from(lineItems).orderBy(desc(lineItems.createdAt)),
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
   return rows.map((row) => {
     const parent = row.bundledIntoId ? byId.get(row.bundledIntoId) : undefined;

@@ -1,5 +1,5 @@
 import { daysBetween, nowAppDate, parseISODate } from "@/lib/dates";
-import { feeRateFor } from "@/lib/platform";
+import { feeRateFor, parsePlatform, type Platform } from "@/lib/platform";
 
 export const MERCARI_FEE_RATE = 0.1;
 
@@ -165,5 +165,21 @@ export function summarize(
     salesDayCount,
     roiOnCapital: totalSpent === 0 ? null : netProfit / totalSpent,
     roiOnSoldCost: soldCost === 0 ? null : totalProfit / soldCost,
+  };
+}
+
+export function summarizeByPlatform(
+  items: Array<SummaryItem & { profit?: number | null }>,
+  today = nowAppDate(),
+): Record<Platform, Summary> {
+  return {
+    mercari: summarize(
+      items.filter((item) => parsePlatform(item.platform) === "mercari"),
+      today,
+    ),
+    vinted: summarize(
+      items.filter((item) => parsePlatform(item.platform) === "vinted"),
+      today,
+    ),
   };
 }

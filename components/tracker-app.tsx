@@ -4,7 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
 
 import { createBundleFromItems, deleteItem, setItemsActive } from "@/app/actions/items";
-import { calculateLineItem, roundMoney, summarize } from "@/lib/calculations";
+import {
+  calculateLineItem,
+  roundMoney,
+  summarize,
+  summarizeByPlatform,
+} from "@/lib/calculations";
 import { todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 import { formatDate, formatMoney, formatPercent } from "@/lib/format";
@@ -43,6 +48,8 @@ type SortKey =
 type SortDir = "asc" | "desc";
 
 type PendingServerItems =
+  | { kind: "create"; id: string }
+  | { kind: "update"; id: string; salePrice: number; active: boolean }
   | { kind: "active"; ids: string[]; active: boolean }
   | { kind: "bundle"; id: string; sourceIds: string[] }
   | { kind: "delete"; id: string };
@@ -66,6 +73,17 @@ function serverMatchesPending(
   items: ComputedItem[],
   pending: PendingServerItems,
 ): boolean {
+  if (pending.kind === "create") {
+    return items.some((item) => item.id === pending.id);
+  }
+  if (pending.kind === "update") {
+    const row = items.find((item) => item.id === pending.id);
+    return (
+      row != null &&
+      row.salePrice === pending.salePrice &&
+      row.active === pending.active
+    );
+  }
   if (pending.kind === "active") {
     return pending.ids.every(
       (id) => items.find((item) => item.id === id)?.active === pending.active,
@@ -170,6 +188,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
   }, [items]);
 
   const summary = useMemo(() => summarize(localItems), [localItems]);
+  const byPlatform = useMemo(() => summarizeByPlatform(localItems), [localItems]);
 
   const scopedItems = useMemo(
     () =>
@@ -468,8 +487,8 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
 
   return (
     <div className="grid min-w-0 gap-8">
-      <DashboardStats summary={summary} />
-      <DashboardCharts summary={summary} />
+      <DashboardStats summary={summary} byPlatform={byPlatform} />
+      <DashboardCharts summary={summary} byPlatform={byPlatform} />
       <div className="grid min-w-0 gap-4">
         <div className="sticky top-14 z-40 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -733,6 +752,38 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
           lots={localItems}
           open={open}
           onSaved={() => setSelectedIds(new Set())}
+          onUpdated={(updated) => {
+            pendingServer.current = {
+              kind: "update",
+              id: updated.id,
+              salePrice: updated.salePrice,
+              active: updated.active,
+            };
+            setLocalItems((current) =>
+              current.map((row) => (row.id === updated.id ? updated : row)),
+            );
+            setActionError(null);
+          }}
+          onUpdateFailed={(previous, message) => {
+            pendingServer.current = null;
+            setLocalItems((current) =>
+              current.map((row) => (row.id === previous.id ? previous : row)),
+            );
+            setActionError(message);
+          }}
+          onCreated={(created) => {
+            pendingServer.current = { kind: "create", id: created.id };
+            setLocalItems((current) => [created, ...current]);
+            setSelectedIds(new Set());
+            setFilter("all");
+            setActionError(null);
+            if (created.platform === "vinted") setPlatformFilter("vinted");
+          }}
+          onCreateFailed={(id, message) => {
+            pendingServer.current = null;
+            setLocalItems((current) => current.filter((item) => item.id !== id));
+            setActionError(message);
+          }}
           onDelete={removeItem}
           onOpenChange={(next) => {
             if (next) setOpen(true);

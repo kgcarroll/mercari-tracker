@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { adviseAsk } from "@/lib/ask";
 import { calculateLineItem } from "@/lib/calculations";
@@ -53,15 +53,23 @@ export function ItemForm({
       ? VINTED_STORE
       : (initial?.store ?? "Hallmark"),
   );
-  const [cost, setCost] = useState(String(initial?.cost ?? ""));
+  const [cost, setCost] = useState(String(initial?.cost ?? "0"));
   const [salePrice, setSalePrice] = useState(String(initial?.salePrice ?? "0"));
-  const [shippingCost, setShippingCost] = useState(String(initial?.shippingCost ?? ""));
+  const [shippingCost, setShippingCost] = useState(
+    String(initial?.shippingCost ?? "0"),
+  );
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [listedAt, setListedAt] = useState(initial?.listedAt ?? "");
   const [soldAt, setSoldAt] = useState(initial?.soldAt ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (platform === "vinted" && store !== VINTED_STORE) {
+      setStore(VINTED_STORE);
+    }
+  }, [platform, store]);
 
   const preview = useMemo(() => {
     return calculateLineItem({
@@ -113,7 +121,7 @@ export function ItemForm({
     try {
       await onSubmit({
         product,
-        store,
+        store: platform === "vinted" ? VINTED_STORE : store,
         cost: Number(cost) || 0,
         salePrice: Number(salePrice) || 0,
         shippingCost: Number(shippingCost) || 0,
@@ -145,7 +153,10 @@ export function ItemForm({
             const next = parsePlatform(value);
             setPlatform(next);
             setStore(next === "vinted" ? VINTED_STORE : "Hallmark");
-            if (next === "vinted") setShippingCost("0");
+            if (next === "vinted") {
+              setShippingCost("0");
+              if (!cost) setCost("0");
+            }
           }}
         >
           <SelectTrigger id="platform" className="w-full">
