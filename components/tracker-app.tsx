@@ -4,10 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
 
 import { createBundleFromItems, deleteItem, setItemsActive } from "@/app/actions/items";
-import { calculateLineItem, roundMoney, summarize } from "@/lib/calculations";
+import {
+  calculateLineItem,
+  roundMoney,
+  summarize,
+  summarizeByPlatform,
+} from "@/lib/calculations";
 import { todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 import { formatDate, formatMoney, formatPercent } from "@/lib/format";
+import { parsePlatform, platformLabel, VINTED_STORE } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { DashboardCharts } from "@/components/dashboard-charts";
 import { DashboardStats } from "@/components/dashboard-stats";
@@ -25,6 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ItemDialogs } from "@/components/item-dialogs";
 
 type Filter = "all" | "sold" | "unsold" | "inactive";
+type PlatformFilter = "all" | "mercari" | "vinted";
 
 type SortKey =
   | "product"
@@ -41,6 +48,8 @@ type SortKey =
 type SortDir = "asc" | "desc";
 
 type PendingServerItems =
+  | { kind: "create"; id: string }
+  | { kind: "update"; id: string; salePrice: number; active: boolean }
   | { kind: "active"; ids: string[]; active: boolean }
   | { kind: "bundle"; id: string; sourceIds: string[] }
   | { kind: "delete"; id: string };
@@ -64,6 +73,17 @@ function serverMatchesPending(
   items: ComputedItem[],
   pending: PendingServerItems,
 ): boolean {
+  if (pending.kind === "create") {
+    return items.some((item) => item.id === pending.id);
+  }
+  if (pending.kind === "update") {
+    const row = items.find((item) => item.id === pending.id);
+    return (
+      row != null &&
+      row.salePrice === pending.salePrice &&
+      row.active === pending.active
+    );
+  }
   if (pending.kind === "active") {
     return pending.ids.every(
       (id) => items.find((item) => item.id === id)?.active === pending.active,
@@ -147,6 +167,7 @@ function SortHeader({
 export function TrackerApp({ items }: { items: ComputedItem[] }) {
   const [localItems, setLocalItems] = useState(items);
   const [filter, setFilter] = useState<Filter>("all");
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("product");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -167,19 +188,28 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
   }, [items]);
 
   const summary = useMemo(() => summarize(localItems), [localItems]);
+  const byPlatform = useMemo(() => summarizeByPlatform(localItems), [localItems]);
+
+  const scopedItems = useMemo(
+    () =>
+      platformFilter === "all"
+        ? localItems
+        : localItems.filter((item) => item.platform === platformFilter),
+    [localItems, platformFilter],
+  );
 
   const activeItems = useMemo(
-    () => localItems.filter((item) => item.active),
-    [localItems],
+    () => scopedItems.filter((item) => item.active),
+    [scopedItems],
   );
   const inactiveItems = useMemo(
-    () => localItems.filter((item) => !item.active),
-    [localItems],
+    () => scopedItems.filter((item) => !item.active),
+    [scopedItems],
   );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = localItems.filter((item) => {
+    const filtered = scopedItems.filter((item) => {
       if (filter === "inactive") {
         if (item.active) return false;
       } else if (!item.active) {
@@ -190,7 +220,8 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       if (!q) return true;
       return (
         item.product.toLowerCase().includes(q) ||
-        item.store.toLowerCase().includes(q)
+        item.store.toLowerCase().includes(q) ||
+        platformLabel(item.platform).toLowerCase().includes(q)
       );
     });
 
@@ -206,7 +237,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       }
       return compareNullableNumber(a[sortKey], b[sortKey], sortDir);
     });
-  }, [filter, localItems, query, sortDir, sortKey]);
+  }, [filter, query, scopedItems, sortDir, sortKey]);
 
   const selectableVisible = visible.filter((item) => item.status === "unsold");
   const selectedItems = localItems.filter((item) => selectedIds.has(item.id));
@@ -255,9 +286,15 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
         .replace(/^BUNDLE:\s*/i, "")
         .trim(),
     );
+    const platform = parsePlatform(items[0]?.platform);
     return {
       product: `BUNDLE: ${names.join("/")}`,
-      store: stores.length === 1 ? stores[0] : "Multiple Stores",
+      store:
+        platform === "vinted"
+          ? VINTED_STORE
+          : stores.length === 1
+            ? stores[0]
+            : "Multiple Stores",
       cost: roundMoney(items.reduce((sum, item) => sum + item.cost, 0)),
       salePrice: 0,
       shippingCost: 0,
@@ -265,12 +302,18 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       listedAt: todayISODate(),
       soldAt: "",
       active: true,
+      platform,
     };
   }
 
   function createBundle() {
     if (selectedUnsold.length < 2) return;
     const sources = selectedUnsold;
+    const platforms = new Set(sources.map((source) => parsePlatform(source.platform)));
+    if (platforms.size > 1) {
+      setActionError("Bundle lots from the same platform only.");
+      return;
+    }
     const input = bundleInput(sources);
     const sourceIds = sources.map((source) => source.id);
     const sourceIdSet = new Set(sourceIds);
@@ -279,6 +322,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
       cost: input.cost,
       salePrice: 0,
       shippingCost: 0,
+      platform: input.platform,
     });
 
     setActionError(null);
@@ -310,6 +354,7 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
             active: true,
             bundledIntoId: null,
             bundledIntoProduct: null,
+            platform: input.platform,
             ...money,
           },
           ...previous.map((item) =>
@@ -442,11 +487,12 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
 
   return (
     <div className="grid min-w-0 gap-8">
-      <DashboardStats summary={summary} />
-      <DashboardCharts summary={summary} />
+      <DashboardStats summary={summary} byPlatform={byPlatform} />
+      <DashboardCharts summary={summary} byPlatform={byPlatform} />
       <div className="grid min-w-0 gap-4">
         <div className="sticky top-14 z-40 -mx-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-2">
           <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
             <TabsList>
               <TabsTrigger value="all">All ({activeItems.length})</TabsTrigger>
@@ -461,6 +507,17 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+          <Tabs
+            value={platformFilter}
+            onValueChange={(value) => setPlatformFilter(value as PlatformFilter)}
+          >
+            <TabsList>
+              <TabsTrigger value="all">All platforms</TabsTrigger>
+              <TabsTrigger value="mercari">Mercari</TabsTrigger>
+              <TabsTrigger value="vinted">Vinted</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          </div>
           <div className="flex min-w-0 gap-2">
             <Input
               value={query}
@@ -646,9 +703,18 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
                 </TableCell>
                 <TableCell className="max-w-0 truncate font-medium" title={item.product}>
                   <span className="block truncate">{item.product}</span>
-                  {!item.active && item.bundledIntoProduct ? (
+                  {item.platform === "vinted" ||
+                  (!item.active && item.bundledIntoProduct) ? (
                     <span className="block truncate text-xs font-normal text-muted-foreground">
-                      In {item.bundledIntoProduct}
+                      {item.platform === "vinted" ? "Vinted" : ""}
+                      {item.platform === "vinted" &&
+                      !item.active &&
+                      item.bundledIntoProduct
+                        ? " · "
+                        : ""}
+                      {!item.active && item.bundledIntoProduct
+                        ? `In ${item.bundledIntoProduct}`
+                        : ""}
                     </span>
                   ) : null}
                 </TableCell>
@@ -686,6 +752,38 @@ export function TrackerApp({ items }: { items: ComputedItem[] }) {
           lots={localItems}
           open={open}
           onSaved={() => setSelectedIds(new Set())}
+          onUpdated={(updated) => {
+            pendingServer.current = {
+              kind: "update",
+              id: updated.id,
+              salePrice: updated.salePrice,
+              active: updated.active,
+            };
+            setLocalItems((current) =>
+              current.map((row) => (row.id === updated.id ? updated : row)),
+            );
+            setActionError(null);
+          }}
+          onUpdateFailed={(previous, message) => {
+            pendingServer.current = null;
+            setLocalItems((current) =>
+              current.map((row) => (row.id === previous.id ? previous : row)),
+            );
+            setActionError(message);
+          }}
+          onCreated={(created) => {
+            pendingServer.current = { kind: "create", id: created.id };
+            setLocalItems((current) => [created, ...current]);
+            setSelectedIds(new Set());
+            setFilter("all");
+            setActionError(null);
+            if (created.platform === "vinted") setPlatformFilter("vinted");
+          }}
+          onCreateFailed={(id, message) => {
+            pendingServer.current = null;
+            setLocalItems((current) => current.filter((item) => item.id !== id));
+            setActionError(message);
+          }}
           onDelete={removeItem}
           onOpenChange={(next) => {
             if (next) setOpen(true);

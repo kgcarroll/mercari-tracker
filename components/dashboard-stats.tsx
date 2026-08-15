@@ -37,7 +37,64 @@ function StatCard({
   );
 }
 
-export function DashboardStats({ summary }: { summary: Summary }) {
+function PlatformCard({
+  name,
+  summary,
+  salesShare,
+  hint,
+}: {
+  name: string;
+  summary: Summary;
+  salesShare: number | null;
+  hint: string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">{name}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div>
+          <p className="text-xs text-muted-foreground">Gross sales</p>
+          <p className="text-2xl font-semibold tracking-tight">
+            {formatMoney(summary.totalSales)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {salesShare == null
+              ? "No sales yet"
+              : `${formatPercent(salesShare)} of combined sales`}
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">Realized profit</p>
+            <p className="font-medium">{formatMoney(summary.totalProfit)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Fees</p>
+            <p className="font-medium">{formatMoney(summary.totalFees)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Sold lots</p>
+            <p className="font-medium">{summary.soldCount}</p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function DashboardStats({
+  summary,
+  byPlatform,
+}: {
+  summary: Summary;
+  byPlatform: { mercari: Summary; vinted: Summary };
+}) {
+  const salesShare = (part: number) =>
+    summary.totalSales === 0 ? null : part / summary.totalSales;
+
   return (
     <div className="grid gap-8">
       <section className="grid gap-3">
@@ -83,18 +140,29 @@ export function DashboardStats({ summary }: { summary: Summary }) {
                   : `${formatMoney(summary.totalSales)} over ${summary.salesDayCount} ${summary.salesDayCount === 1 ? "day" : "days"}`
             }
           />
-          <StatCard label="Total Mercari fees" value={formatMoney(summary.totalFees)} />
+          <StatCard label="Total fees" value={formatMoney(summary.totalFees)} />
           <StatCard label="Total cost of all lots" value={formatMoney(summary.totalSpent)} />
           <StatCard
             label="Overall ROI"
             value={formatPercent(summary.roiOnCapital)}
             hint="Net profit ÷ all money spent"
           />
-          <StatCard
-            label="Unsold lots"
-            value={String(summary.unsoldCount)}
-            valueClassName="text-red-700 dark:text-red-400"
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-muted-foreground text-xs font-medium">
+                Unsold lots
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-3">
+              <p className="text-3xl font-semibold tracking-tight text-red-700 dark:text-red-400">
+                {summary.unsoldCount}
+              </p>
+              <div className="grid justify-items-end gap-1 text-xs text-muted-foreground">
+                <p>Mercari: {byPlatform.mercari.unsoldCount}</p>
+                <p>Vinted: {byPlatform.vinted.unsoldCount}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -122,6 +190,31 @@ export function DashboardStats({ summary }: { summary: Summary }) {
           <StatCard
             label="ROI on sold cost"
             value={formatPercent(summary.roiOnSoldCost)}
+          />
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <div>
+          <h2 className="text-sm font-medium">Mercari vs Vinted</h2>
+          <p className="text-xs text-muted-foreground">
+            Combined net profit above is still the book. This split is sales and
+            realized profit only — not ROI, which closet lots at $0 cost would
+            distort.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PlatformCard
+            name="Mercari"
+            summary={byPlatform.mercari}
+            salesShare={salesShare(byPlatform.mercari.totalSales)}
+            hint="Fee is 10% of (sale + shipping). Profit is sale − fee − cost."
+          />
+          <PlatformCard
+            name="Vinted"
+            summary={byPlatform.vinted}
+            salesShare={salesShare(byPlatform.vinted.totalSales)}
+            hint="No seller fee. Profit is sale − cost. Closet lots can be $0 cost."
           />
         </div>
       </section>

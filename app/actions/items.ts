@@ -1,18 +1,19 @@
 "use server";
 
 import { eq, inArray } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { requireAppUser } from "@/lib/auth";
 import { todayISODate } from "@/lib/dates";
-import { getDb } from "@/lib/db";
+import { getDb, withDbRetry } from "@/lib/db";
 import { lineItems } from "@/lib/db/schema";
+import { parsePlatform, VINTED_STORE } from "@/lib/platform";
 
 const itemSchema = z.object({
+  id: z.string().uuid().optional(),
   product: z.string().trim().min(1, "Product is required"),
-  store: z.string().trim().min(1, "Store is required"),
+  store: z.string().trim().optional(),
   cost: z.coerce.number().nonnegative(),
   salePrice: z.coerce.number().nonnegative(),
   shippingCost: z.coerce.number().nonnegative(),
@@ -21,6 +22,7 @@ const itemSchema = z.object({
   listedAt: z.string().optional(),
   soldAt: z.string().optional(),
   active: z.boolean().optional(),
+  platform: z.enum(["mercari", "vinted"]).optional(),
 });
 
 export type ItemInput = z.infer<typeof itemSchema>;
@@ -42,7 +44,10 @@ function toRow(input: ItemInput) {
 
   return {
     product: input.product,
-    store: input.store,
+    store:
+      input.platform === "vinted"
+        ? VINTED_STORE
+        : (input.store?.trim() || "Hallmark"),
     cost: money(input.cost),
     salePrice: money(input.salePrice),
     shippingCost: money(input.shippingCost),
@@ -50,14 +55,9 @@ function toRow(input: ItemInput) {
     purchasedAt: emptyToNull(input.purchasedAt),
     listedAt: emptyToNull(input.listedAt),
     soldAt,
+    platform: input.platform ?? "mercari",
     updatedAt: new Date(),
   };
-}
-
-function revalidateTracker() {
-  revalidatePath("/");
-  revalidatePath("/insights");
-  revalidatePath("/buy");
 }
 
 async function assertCanActivate(
@@ -83,47 +83,108 @@ async function assertCanActivate(
   }
 }
 
-export async function createItem(raw: ItemInput) {
-  await requireAppUser();
-  const input = itemSchema.parse(raw);
-  const db = getDb();
-  await db.insert(lineItems).values({ ...toRow(input), active: true });
-  revalidateTracker();
+function parseItem(raw: ItemInput) {
+  const parsed = itemSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Check the fields.");
+  }
+  return parsed.data;
 }
 
-export async function updateItem(id: string, raw: ItemInput) {
+function isUniqueViolation(err: unknown): boolean {
+  const code =
+    err && typeof err === "object" && "cause" in err
+      ? (err.cause as { code?: string } | undefined)?.code
+      : undefined;
+  return code === "23505";
+}
+
+function saveErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/abort|timeout|fetch failed/i.test(message)) {
+    return "Database timed out. Try again.";
+  }
+  return "Could not save. Try again.";
+}
+
+export async function createItem(
+  raw: ItemInput,
+): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
   await requireAppUser();
-  const input = itemSchema.parse(raw);
-  const db = getDb();
-  const [current] = await db
-    .select({
-      active: lineItems.active,
-      bundledIntoId: lineItems.bundledIntoId,
-    })
-    .from(lineItems)
-    .where(eq(lineItems.id, id))
-    .limit(1);
+  const input = parseItem(raw);
+  const id = input.id ?? crypto.randomUUID();
+  try {
+    const db = getDb();
+    await withDbRetry(() =>
+      db.insert(lineItems).values({ id, ...toRow(input), active: true }),
+    );
+    return { ok: true, id };
+  } catch (err) {
+    unstable_rethrow(err);
+    if (isUniqueViolation(err)) return { ok: true, id };
+    console.error("createItem failed", err);
+    return { ok: false, message: saveErrorMessage(err) };
+  }
+}
+
+export async function updateItem(
+  id: string,
+  raw: ItemInput,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await requireAppUser();
+  const input = parseItem(raw);
   const active = input.active ?? true;
+  const db = getDb();
 
-  if (active) {
-    await assertCanActivate(db, current?.bundledIntoId ?? null);
+  try {
+    let current:
+      | { active: boolean; bundledIntoId: string | null }
+      | undefined;
+    try {
+      [current] = await withDbRetry(() =>
+        db
+          .select({
+            active: lineItems.active,
+            bundledIntoId: lineItems.bundledIntoId,
+          })
+          .from(lineItems)
+          .where(eq(lineItems.id, id))
+          .limit(1),
+      );
+    } catch (err) {
+      unstable_rethrow(err);
+      console.error("updateItem lookup failed", err);
+    }
+
+    if (active && current) {
+      await assertCanActivate(db, current.bundledIntoId);
+    }
+
+    await withDbRetry(() =>
+      db
+        .update(lineItems)
+        .set({
+          ...toRow(input),
+          active,
+        })
+        .where(eq(lineItems.id, id)),
+    );
+
+    if (current && current.active !== active) {
+      await withDbRetry(() =>
+        db
+          .update(lineItems)
+          .set({ active: !active, updatedAt: new Date() })
+          .where(eq(lineItems.bundledIntoId, id)),
+      );
+    }
+
+    return { ok: true };
+  } catch (err) {
+    unstable_rethrow(err);
+    console.error("updateItem failed", err);
+    return { ok: false, message: saveErrorMessage(err) };
   }
-
-  await db
-    .update(lineItems)
-    .set({
-      ...toRow(input),
-      active,
-    })
-    .where(eq(lineItems.id, id));
-
-  if (current && current.active !== active) {
-    await db
-      .update(lineItems)
-      .set({ active: !active, updatedAt: new Date() })
-      .where(eq(lineItems.bundledIntoId, id));
-  }
-  revalidatePath("/");
 }
 
 export async function deleteItem(
@@ -201,8 +262,17 @@ export async function createBundleFromItems(
       return { ok: false, message: "Pick at least two lots to bundle." };
     }
 
-    const bundleId = crypto.randomUUID();
     const db = getDb();
+    const sources = await db
+      .select({ platform: lineItems.platform })
+      .from(lineItems)
+      .where(inArray(lineItems.id, uniqueIds));
+    const platforms = new Set(sources.map((row) => parsePlatform(row.platform)));
+    if (platforms.size > 1) {
+      return { ok: false, message: "Bundle lots from the same platform only." };
+    }
+
+    const bundleId = crypto.randomUUID();
 
     await db.batch([
       db.insert(lineItems).values({

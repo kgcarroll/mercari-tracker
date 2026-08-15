@@ -161,8 +161,13 @@ export function attachAskAdvice(
   items: ComputedItem[],
   today = nowAppDate(),
 ): StaleSuggestion[] {
-  const sold = items.filter((item) => item.status === "sold");
-  const unsold = items.filter((item) => item.status === "unsold" && item.active);
+  const sold = items.filter(
+    (item) => item.status === "sold" && item.platform !== "vinted",
+  );
+  const unsold = items.filter(
+    (item) =>
+      item.status === "unsold" && item.active && item.platform !== "vinted",
+  );
   return stale.map((row) => {
     const item = items.find((lot) => lot.id === row.id);
     if (!item) return row;

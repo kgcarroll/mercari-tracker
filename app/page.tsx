@@ -15,7 +15,8 @@ export default async function Home() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Net profit is realized profit minus unsold inventory at cost.
-            Mercari fee is 10% of (sale + shipping). Sold profit is sale − fee − cost.
+            Mercari fee is 10% of (sale + shipping). Vinted has no seller fee.
+            Sold profit is sale − fee − cost.
           </p>
         </div>
         <TrackerApp items={items} />

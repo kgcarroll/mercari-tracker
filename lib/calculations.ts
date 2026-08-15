@@ -1,4 +1,5 @@
 import { daysBetween, nowAppDate, parseISODate } from "@/lib/dates";
+import { feeRateFor, parsePlatform, type Platform } from "@/lib/platform";
 
 export const MERCARI_FEE_RATE = 0.1;
 
@@ -6,6 +7,7 @@ export type MoneyInputs = {
   cost: number;
   salePrice: number;
   shippingCost: number;
+  platform?: string | null;
 };
 
 export type SummaryItem = MoneyInputs & {
@@ -35,6 +37,7 @@ export function calculateLineItem({
   cost,
   salePrice,
   shippingCost,
+  platform,
 }: MoneyInputs): LineItemTotals {
   if (!isSold(salePrice)) {
     return {
@@ -46,7 +49,8 @@ export function calculateLineItem({
     };
   }
 
-  const mercariFee = roundMoney((salePrice + shippingCost) * MERCARI_FEE_RATE);
+  const rate = feeRateFor(platform);
+  const mercariFee = roundMoney((salePrice + shippingCost) * rate);
   const netSale = roundMoney(salePrice - mercariFee);
   // Shipping is in the fee base only. Buyer-paid shipping nets out except for
   // the 10% Mercari takes on it, which is already inside mercariFee.
@@ -161,5 +165,21 @@ export function summarize(
     salesDayCount,
     roiOnCapital: totalSpent === 0 ? null : netProfit / totalSpent,
     roiOnSoldCost: soldCost === 0 ? null : totalProfit / soldCost,
+  };
+}
+
+export function summarizeByPlatform(
+  items: Array<SummaryItem & { profit?: number | null }>,
+  today = nowAppDate(),
+): Record<Platform, Summary> {
+  return {
+    mercari: summarize(
+      items.filter((item) => parsePlatform(item.platform) === "mercari"),
+      today,
+    ),
+    vinted: summarize(
+      items.filter((item) => parsePlatform(item.platform) === "vinted"),
+      today,
+    ),
   };
 }
