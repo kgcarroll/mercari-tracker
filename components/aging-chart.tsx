@@ -27,6 +27,7 @@ import {
 
 const agingConfig = {
   cost: { label: "Cash sitting" },
+  count: { label: "Listings" },
 } satisfies ChartConfig;
 
 const BAR_FILL: Record<AgingBucketKey, string> = {
@@ -36,7 +37,13 @@ const BAR_FILL: Record<AgingBucketKey, string> = {
   undated: "#737373",
 };
 
-export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
+export function AgingChart({
+  buckets,
+  measure = "cost",
+}: {
+  buckets: AgingBucket[];
+  measure?: "cost" | "count";
+}) {
   const data = buckets.map((bucket) => ({
     bucket: bucket.label,
     key: bucket.key,
@@ -44,16 +51,20 @@ export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
     count: bucket.count,
     fill: BAR_FILL[bucket.key],
   }));
-  const total = buckets.reduce((sum, bucket) => sum + bucket.cost, 0);
+  const totalCost = buckets.reduce((sum, bucket) => sum + bucket.cost, 0);
+  const totalCount = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+  const byCount = measure === "count";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Aging inventory</CardTitle>
         <CardDescription>
-          {formatMoney(total)} still on the shelf. Fresh is 0–{FRESH_MAX_DAYS}{" "}
-          days posted, aging {AGING_MIN_DAYS}–{AGING_MAX_DAYS}, stale{" "}
-          {STALE_MIN_DAYS}+.
+          {byCount
+            ? `${totalCount} listing${totalCount === 1 ? "" : "s"} on the shelf.`
+            : `${formatMoney(totalCost)} still on the shelf.`}{" "}
+          Fresh is 0–{FRESH_MAX_DAYS} days posted, aging {AGING_MIN_DAYS}–
+          {AGING_MAX_DAYS}, stale {STALE_MIN_DAYS}+.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,17 +75,23 @@ export function AgingChart({ buckets }: { buckets: AgingBucket[] }) {
             <YAxis
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value: number) => `$${value}`}
+              tickFormatter={(value: number) =>
+                byCount ? String(value) : `$${value}`
+              }
               width={48}
             />
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  formatter={(value) => formatMoney(Number(value))}
+                  formatter={(value) =>
+                    byCount
+                      ? `${Number(value)} listing${Number(value) === 1 ? "" : "s"}`
+                      : formatMoney(Number(value))
+                  }
                 />
               }
             />
-            <Bar dataKey="cost" radius={6}>
+            <Bar dataKey={byCount ? "count" : "cost"} radius={6}>
               {data.map((entry) => (
                 <Cell key={entry.key} fill={entry.fill} />
               ))}

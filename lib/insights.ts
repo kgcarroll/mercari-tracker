@@ -2,7 +2,7 @@ import { calculateLineItem, roundMoney } from "@/lib/calculations";
 import { daysBetween, median, nowAppDate, parseISODate, todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
 
-export type InventoryAction = "relist" | "bundle" | "hold";
+export type InventoryAction = "relist" | "bundle" | "hold" | "drop";
 
 export type StaleSuggestion = {
   id: string;
@@ -81,7 +81,7 @@ function daysToSell(item: ComputedItem): number | null {
   return Math.max(0, daysBetween(posted, sold));
 }
 
-function agingKey(days: number | null): AgingBucketKey {
+export function agingKey(days: number | null): AgingBucketKey {
   if (days == null) return "undated";
   if (days >= STALE_MIN_DAYS) return "stale";
   if (days >= AGING_MIN_DAYS) return "aging";

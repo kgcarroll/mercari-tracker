@@ -7,6 +7,7 @@ const actionLabel: Record<StaleSuggestion["action"], string> = {
   relist: "List solo",
   bundle: "Bundle",
   hold: "Hold",
+  drop: "Drop price",
 };
 
 function sittingLabel(days: number | null): string {
@@ -17,8 +18,10 @@ function sittingLabel(days: number | null): string {
 
 export function StaleActions({
   suggestions,
+  emptyMessage = "Nothing looks stale. Add posted dates on unsold lots so aging can be tracked.",
 }: {
   suggestions: StaleSuggestion[];
+  emptyMessage?: string;
 }) {
   return (
     <Card>
@@ -28,7 +31,7 @@ export function StaleActions({
       <CardContent>
         {suggestions.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing looks stale. Add posted dates on unsold lots so aging can be tracked.
+            {emptyMessage}
           </p>
         ) : (
           <ul className="grid max-h-80 gap-3 overflow-y-auto pr-1">
