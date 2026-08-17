@@ -1,6 +1,7 @@
 import { roundMoney } from "@/lib/calculations";
-import { nowAppDate, todayISODate } from "@/lib/dates";
+import { median, nowAppDate, todayISODate } from "@/lib/dates";
 import type { ComputedItem } from "@/lib/db/queries";
+import { formatMoney } from "@/lib/format";
 import {
   agingKey,
   daysSitting,
@@ -18,6 +19,37 @@ export const VINTED_GOAL: VintedGoal = "clear";
 
 /** Days sitting before "drop it". Raise this to relax. */
 export const VINTED_DROP_AFTER_DAYS = 14;
+/** After this, aim a bit under the sold median. */
+export const VINTED_NUDGE_AFTER_DAYS = 21;
+/** After this, aim further under the sold median. */
+export const VINTED_CLEAR_AFTER_DAYS = 30;
+export const VINTED_MIN_ASK = 3;
+
+const WEAK_TITLE_TOKENS = new Set([
+  "and",
+  "boy",
+  "boys",
+  "for",
+  "girl",
+  "girls",
+  "kid",
+  "kids",
+  "large",
+  "man",
+  "medium",
+  "men",
+  "mens",
+  "nwt",
+  "nwot",
+  "size",
+  "small",
+  "the",
+  "with",
+  "woman",
+  "women",
+  "womens",
+  "xxl",
+]);
 
 export function vintedDropAfterDays(
   goal: VintedGoal = VINTED_GOAL,
@@ -33,6 +65,100 @@ export function shouldDropVintedListing(
 ): boolean {
   if (goal !== "clear") return false;
   return days != null && days >= dropAfterDays;
+}
+
+/** Brand / garment tokens. Keeps parentheticals. Drops size, gender, numbers. */
+export function vintedTitleTokens(title: string): string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const token of title
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .split(/[^a-z0-9]+/)) {
+    if (
+      token.length < 3 ||
+      WEAK_TITLE_TOKENS.has(token) ||
+      /^\d/.test(token) ||
+      seen.has(token)
+    ) {
+      continue;
+    }
+    seen.add(token);
+    tokens.push(token);
+  }
+  return tokens;
+}
+
+function sharedTitleTokens(a: string, b: string): number {
+  const other = new Set(vintedTitleTokens(b));
+  let shared = 0;
+  for (const token of vintedTitleTokens(a)) {
+    if (other.has(token)) shared += 1;
+  }
+  return shared;
+}
+
+/** Same brand + garment, not swimsuit vs leggings. Needs 2 shared tokens. */
+export function similarVintedSold(
+  title: string,
+  sold: ComputedItem[],
+): ComputedItem[] {
+  const tokens = vintedTitleTokens(title);
+  if (tokens.length < 2) return [];
+  return sold.filter(
+    (item) => item.salePrice > 0 && sharedTitleTokens(title, item.product) >= 2,
+  );
+}
+
+export function vintedTargetAsk(
+  medianSale: number,
+  days: number,
+): number {
+  let ask = Math.round(medianSale);
+  if (days >= VINTED_CLEAR_AFTER_DAYS) ask -= 4;
+  else if (days >= VINTED_NUDGE_AFTER_DAYS) ask -= 2;
+  return Math.max(VINTED_MIN_ASK, ask);
+}
+
+function dropSuggestion(
+  item: ComputedItem,
+  sitting: number,
+  sold: ComputedItem[],
+): StaleSuggestion {
+  const comps = similarVintedSold(item.product, sold);
+  const soldAround = median(comps.map((comp) => comp.salePrice));
+  if (soldAround == null) {
+    return {
+      id: item.id,
+      product: item.product,
+      cost: item.cost,
+      daysSitting: sitting,
+      action: "drop",
+      reason: `${sitting} days sitting. Drop the ask so it moves.`,
+    };
+  }
+
+  const ask = vintedTargetAsk(soldAround, sitting);
+  const around = formatMoney(roundMoney(soldAround));
+  const compBit =
+    comps.length === 1
+      ? `A similar listing sold for ${around}.`
+      : `Similar listings sold around ${around}.`;
+  const tryBit =
+    ask === Math.round(soldAround)
+      ? "Try that."
+      : `Try about ${formatMoney(ask)}.`;
+
+  return {
+    id: item.id,
+    product: item.product,
+    cost: item.cost,
+    daysSitting: sitting,
+    action: "drop",
+    ask,
+    askLabel: "Try about",
+    reason: `${sitting} days sitting. ${compBit} ${tryBit}`,
+  };
 }
 
 /**
@@ -77,14 +203,7 @@ export function buildVintedInsights(
     if (!shouldDropVintedListing(sitting, goal, VINTED_DROP_AFTER_DAYS)) {
       continue;
     }
-    stale.push({
-      id: item.id,
-      product: item.product,
-      cost: item.cost,
-      daysSitting: sitting,
-      action: "drop",
-      reason: `${sitting} days sitting. Drop the ask so it moves.`,
-    });
+    stale.push(dropSuggestion(item, sitting, sold));
   }
   stale.sort((a, b) => {
     if (a.daysSitting == null && b.daysSitting == null) return b.cost - a.cost;

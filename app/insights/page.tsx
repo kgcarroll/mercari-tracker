@@ -38,7 +38,7 @@ export default async function InsightsPage({
               <h1 className="text-2xl font-semibold tracking-tight">Insights</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {VINTED_GOAL === "clear"
-                  ? `Clear the closet. Drop listings that have sat ${insights.staleAfterDays} days. No price guess — just what has sat too long.`
+                  ? `Clear the closet. Drop listings that have sat ${insights.staleAfterDays} days. A target appears when a similar listing already sold.`
                   : "Holding closet listings. Aging is tracked; drop nags are off."}
               </p>
             </div>

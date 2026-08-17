@@ -43,9 +43,11 @@ export function StaleActions({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatMoney(row.cost)} · {sittingLabel(row.daysSitting)}
-                    {row.ask != null
+                    {row.ask != null && row.floor != null
                       ? ` · suggested ask ${formatMoney(row.ask)} · floor ${formatMoney(row.floor)}`
-                      : ""}
+                      : row.ask != null
+                        ? ` · try about ${formatMoney(row.ask)}`
+                        : ""}
                   </p>
                   {row.profitAtAsk != null ? (
                     <p className="text-xs text-muted-foreground">

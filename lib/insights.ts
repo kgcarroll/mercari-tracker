@@ -14,7 +14,7 @@ export type StaleSuggestion = {
   ask?: number;
   floor?: number;
   profitAtAsk?: number | null;
-  askLabel?: "Ask" | "Drop to" | "Last solo ask";
+  askLabel?: "Ask" | "Drop to" | "Last solo ask" | "Try about";
 };
 
 export type AgingBucketKey = "fresh" | "aging" | "stale" | "undated";
